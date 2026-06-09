@@ -1,11 +1,11 @@
 ---
 name: omnifocus
-description: Search, read, create, update, and delete OmniFocus tasks and projects, including inbox, flagged, due, deferred, completed, available, remaining, project lists, project search, and task/project details.
+description: Search, read, create, update, and delete OmniFocus tasks, projects, folders, and tags, including inbox, flagged, due, deferred, completed, available, remaining, project/folder/tag lists, search, and details.
 ---
 
 # OmniFocus
 
-Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus, inspect OmniFocus projects, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task or project, update a task or project, delete a task or project, or inspect detailed metadata for a specific task or project.
+Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus, inspect OmniFocus projects, folders, or tags, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task, project, folder, or tag, update a task, project, folder, or tag, delete a task, project, folder, or tag, or inspect detailed metadata for a specific task, project, folder, or tag.
 
 ## Requirements
 
@@ -32,6 +32,18 @@ Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus
    - `create-project name=<title> [note=...] [folder=...] [tag=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
    - `update-project <project-id-or-name> name=... note=... completed=true status=... due=... defer=... folder=... tag=... flagged=true sequential=true estimatedMinutes=15`: update a project.
    - `delete-project <project-id-or-name>`: delete a project.
+   - `folders`: list folders.
+   - `search-folders query=<text> [limit=50]`: search folders.
+   - `folder-detail <folder-id-or-name>`: full folder details.
+   - `create-folder name=<title> [note=...] [folder=...]`: create a folder.
+   - `update-folder <folder-id-or-name> name=... note=... folder=... hidden=false`: update or move a folder.
+   - `delete-folder <folder-id-or-name>`: delete a folder.
+   - `tags`: list tags.
+   - `search-tags query=<text> [limit=50]`: search tags.
+   - `tag-detail <tag-id-or-name>`: full tag details.
+   - `create-tag name=<title> [note=...] [tag=...] [allowsNextAction=true]`: create a tag.
+   - `update-tag <tag-id-or-name> name=... note=... tag=... allowsNextAction=true hidden=false`: update or move a tag.
+   - `delete-tag <tag-id-or-name>`: delete a tag.
    - `search query=<text> [scope=remaining] [limit=50] [detail=false]`: search tasks.
    - `detail <task-id>`: full task details.
    - `create name=<title> [note=...] [project=...] [tag=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
@@ -56,6 +68,12 @@ osascript ../../scripts/read_omnifocus_tasks.applescript project-detail <project
 osascript ../../scripts/read_omnifocus_tasks.applescript create-project name="Project title" note="Optional note"
 osascript ../../scripts/read_omnifocus_tasks.applescript update-project <project-id-or-name> completed=true
 osascript ../../scripts/read_omnifocus_tasks.applescript delete-project <project-id-or-name>
+osascript ../../scripts/read_omnifocus_tasks.applescript folders
+osascript ../../scripts/read_omnifocus_tasks.applescript search-folders query="Work"
+osascript ../../scripts/read_omnifocus_tasks.applescript create-folder name="Folder title"
+osascript ../../scripts/read_omnifocus_tasks.applescript tags
+osascript ../../scripts/read_omnifocus_tasks.applescript search-tags query="Office"
+osascript ../../scripts/read_omnifocus_tasks.applescript create-tag name="Tag title"
 osascript ../../scripts/read_omnifocus_tasks.applescript search query="Natalia" limit=5
 osascript ../../scripts/read_omnifocus_tasks.applescript detail <task-id>
 osascript ../../scripts/read_omnifocus_tasks.applescript create name="Task title" note="Optional note"
@@ -87,6 +105,8 @@ Supported project search options:
 
 Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
 
+Use `search-folders` when the user refers to a folder by name, parent, or note text. Use `search-tags` when the user refers to a tag by name, parent, or note text.
+
 ## Write Operations
 
 Use `create` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
@@ -100,6 +120,9 @@ Use `update` for task changes. Supported fields:
 - `due`
 - `defer`
 - `tag`
+- `tags`: comma-separated list of tags to replace all existing task tags.
+- `addTag`: one tag or comma-separated tags to add to a task.
+- `removeTag`: one tag or comma-separated tags to remove from a task.
 - `project`
 - `estimatedMinutes` or `estimated`
 
@@ -118,12 +141,30 @@ Use `update-project` for project changes. Supported fields:
 - `due`
 - `defer`
 - `tag`
+- `tags`: comma-separated list. OmniFocus AppleScript supports full multi-tag add/remove for tasks; projects fall back to primary tag when the project object rejects tag collection edits.
+- `addTag`: one tag or comma-separated tags. Full multi-tag is verified for tasks; projects use primary-tag fallback.
+- `removeTag`: one tag or comma-separated tags.
 - `folder`
 - `sequential`
 - `completedByChildren`
 - `estimatedMinutes` or `estimated`
 
 Use `delete-project` only when the user's intent is explicit or after confirmation. Deletion returns the deleted project's detailed JSON.
+
+Use `create-folder`, `update-folder`, and `delete-folder` for folder management. Supported folder fields are:
+
+- `name` or `title`
+- `note`
+- `folder` or `parent`: parent folder name/id, or empty/`none` to move to top level
+- `hidden`
+
+Use `create-tag`, `update-tag`, and `delete-tag` for tag management. Supported tag fields are:
+
+- `name` or `title`
+- `note`
+- `tag` or `parent`: parent tag name/id, or empty/`none` to move to top level
+- `allowsNextAction`
+- `hidden`
 
 Date values are parsed by macOS AppleScript in the current locale. If date parsing fails, ask the user for a clearer date/time.
 
@@ -134,8 +175,14 @@ Prefer concise updates such as:
 - `Reading your OmniFocus inbox.`
 - `Reading flagged tasks from OmniFocus.`
 - `Reading OmniFocus projects.`
+- `Reading OmniFocus folders.`
+- `Reading OmniFocus tags.`
 - `Searching OmniFocus projects.`
+- `Searching OmniFocus folders.`
+- `Searching OmniFocus tags.`
 - `Updating the OmniFocus project.`
+- `Updating the OmniFocus folder.`
+- `Updating the OmniFocus tag.`
 - `Reading the OmniFocus project details.`
 - `Searching OmniFocus tasks.`
 - `Creating the OmniFocus task.`

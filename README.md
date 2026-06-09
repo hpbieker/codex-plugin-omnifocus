@@ -1,8 +1,8 @@
 # OmniFocus Codex Plugin
 
-This is a local Codex plugin that lets Codex read and manage tasks and projects from OmniFocus through AppleScript.
+This is a local Codex plugin that lets Codex read and manage tasks, projects, folders, and tags from OmniFocus through AppleScript.
 
-The plugin can search tasks and projects, read task and project lists, inspect detailed metadata, create tasks and projects, update tasks and projects, and delete tasks and projects. Commands return JSON.
+The plugin can search tasks, projects, folders, and tags; read lists; inspect detailed metadata; create, update, move, and delete objects; and manage task tags. Commands return JSON.
 
 ## Requirements
 
@@ -72,6 +72,18 @@ osascript scripts/read_omnifocus_tasks.applescript remaining
 - `create-project`: create a new project
 - `update-project <project-id-or-name>`: update an existing project
 - `delete-project <project-id-or-name>`: delete an existing project
+- `folders`: list folders
+- `search-folders`: search folders by text
+- `folder-detail <folder-id-or-name>`: detailed metadata for one folder
+- `create-folder`: create a new folder
+- `update-folder <folder-id-or-name>`: update or move an existing folder
+- `delete-folder <folder-id-or-name>`: delete an existing folder
+- `tags`: list tags
+- `search-tags`: search tags by text
+- `tag-detail <tag-id-or-name>`: detailed metadata for one tag
+- `create-tag`: create a new tag
+- `update-tag <tag-id-or-name>`: update or move an existing tag
+- `delete-tag <tag-id-or-name>`: delete an existing tag
 - `search`: search tasks by text
 - `detail <task-id>`: detailed metadata for one task
 - `create`: create a new task
@@ -89,6 +101,9 @@ Once the plugin is installed, ask Codex naturally:
 - `Search OmniFocus projects for energy`
 - `Close this OmniFocus project`
 - `Create an OmniFocus project for tax paperwork`
+- `List my OmniFocus tags`
+- `Create an OmniFocus tag for errands`
+- `Move this project to the Work folder`
 - `What is in my OmniFocus inbox?`
 - `Create an OmniFocus task to call Anne tomorrow`
 - `Mark this OmniFocus task as flagged`
@@ -160,6 +175,44 @@ Delete a project:
 osascript scripts/read_omnifocus_tasks.applescript delete-project project-id-or-name
 ```
 
+List folders and tags:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript folders
+osascript scripts/read_omnifocus_tasks.applescript tags
+```
+
+Search folders or tags:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript search-folders query="Arbeid"
+osascript scripts/read_omnifocus_tasks.applescript search-tags query="Kontoret"
+```
+
+Create, update, or delete a folder:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript create-folder name="Folder title"
+osascript scripts/read_omnifocus_tasks.applescript update-folder folder-id-or-name name="New folder title" parent="Parent folder"
+osascript scripts/read_omnifocus_tasks.applescript delete-folder folder-id-or-name
+```
+
+Create, update, or delete a tag:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript create-tag name="Tag title"
+osascript scripts/read_omnifocus_tasks.applescript update-tag tag-id-or-name name="New tag title" parent="Parent tag"
+osascript scripts/read_omnifocus_tasks.applescript delete-tag tag-id-or-name
+```
+
+Replace, add, or remove task tags:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript update task-id tags="Office,Next"
+osascript scripts/read_omnifocus_tasks.applescript update task-id addTag="Errand"
+osascript scripts/read_omnifocus_tasks.applescript update task-id removeTag="Waiting"
+```
+
 Search completed or all tasks:
 
 ```sh
@@ -194,6 +247,9 @@ Supported create/update fields:
 - `due`
 - `defer`
 - `tag`
+- `tags`
+- `addTag`
+- `removeTag`
 - `project`
 - `estimatedMinutes` or `estimated`
 
@@ -208,16 +264,45 @@ Supported project create/update fields:
 - `due`
 - `defer`
 - `tag`
+- `tags`
+- `addTag`
+- `removeTag`
 - `folder`
 - `sequential`
 - `completedByChildren`
 - `estimatedMinutes` or `estimated`
+
+Task tag fields:
+
+- `tag`: set the primary tag.
+- `tags`: replace all tags with a comma-separated list.
+- `addTag`: add one tag or a comma-separated list.
+- `removeTag`: remove one tag or a comma-separated list.
+
+Project tag fields use the same names, but OmniFocus AppleScript only accepted primary-tag fallback in testing. Tasks support full multi-tag add/remove through `tags of task`.
+
+Supported folder create/update fields:
+
+- `name` or `title`
+- `note`
+- `folder` or `parent`
+- `hidden`
+
+Supported tag create/update fields:
+
+- `name` or `title`
+- `note`
+- `tag` or `parent`
+- `allowsNextAction`
+- `hidden`
 
 Date values are parsed by macOS AppleScript using the current locale.
 
 Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive.
 
 Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
+
+Folder search matches folder id, name/title, note, and parent. Tag search matches tag id, name/title, note, and parent. Matching is case-insensitive.
 
 Supported search options:
 
@@ -232,6 +317,11 @@ Supported project search options:
 - `scope`: `remaining`, `active`, `on-hold`, `completed`, `dropped`, or `all`
 - `limit`
 - `detail`
+
+Supported folder and tag search options:
+
+- `query` or `q`
+- `limit`
 
 ## Data Format
 
@@ -267,6 +357,37 @@ Projects are returned as JSON:
     "completed": false,
     "due": "",
     "defer": "",
+    "note": ""
+  }
+]
+```
+
+Folders are returned as JSON:
+
+```json
+[
+  {
+    "id": "folder-id",
+    "name": "Folder name",
+    "parent": "Parent folder",
+    "hidden": false,
+    "note": ""
+  }
+]
+```
+
+Tags are returned as JSON:
+
+```json
+[
+  {
+    "id": "tag-id",
+    "name": "Tag name",
+    "parent": "Parent tag",
+    "allowsNextAction": true,
+    "hidden": false,
+    "availableTaskCount": 0,
+    "remainingTaskCount": 0,
     "note": ""
   }
 ]
@@ -357,6 +478,17 @@ Project search returns a wrapper with total count and matched projects:
   "count": 1,
   "limit": 5,
   "projects": []
+}
+```
+
+Folder and tag search return wrappers with total count and matched objects:
+
+```json
+{
+  "query": "Office",
+  "count": 1,
+  "limit": 5,
+  "tags": []
 }
 ```
 

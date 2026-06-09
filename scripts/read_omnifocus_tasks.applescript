@@ -2,9 +2,9 @@ on run argv
 	set requestedMode to "remaining"
 	if (count of argv) > 0 then set requestedMode to item 1 of argv
 	
-	set validModes to {"inbox", "available", "remaining", "flagged", "due", "deferred", "completed", "projects", "search-projects", "project-detail", "create-project", "update-project", "delete-project", "search", "detail", "create", "update", "delete"}
+	set validModes to {"inbox", "available", "remaining", "flagged", "due", "deferred", "completed", "projects", "search-projects", "project-detail", "create-project", "update-project", "delete-project", "folders", "search-folders", "folder-detail", "create-folder", "update-folder", "delete-folder", "tags", "search-tags", "tag-detail", "create-tag", "update-tag", "delete-tag", "search", "detail", "create", "update", "delete"}
 	if validModes does not contain requestedMode then
-		error "Unknown mode '" & requestedMode & "'. Use one of: inbox, available, remaining, flagged, due, deferred, completed, projects, search-projects, project-detail, create-project, update-project, delete-project, search, detail, create, update, delete."
+		error "Unknown mode '" & requestedMode & "'. Use one of: inbox, available, remaining, flagged, due, deferred, completed, projects, search-projects, project-detail, create-project, update-project, delete-project, folders, search-folders, folder-detail, create-folder, update-folder, delete-folder, tags, search-tags, tag-detail, create-tag, update-tag, delete-tag, search, detail, create, update, delete."
 	end if
 	
 	tell application "/Applications/OmniFocus.app"
@@ -13,6 +13,58 @@ on run argv
 				set optionsMap to my parseOptions(argv, 2)
 				set projectItems to every «class FCfx»
 				return my projectsToJSON(projectItems, optionsMap)
+			else if requestedMode is "folders" then
+				set folderItems to every «class FCff»
+				return my foldersToJSON(folderItems)
+			else if requestedMode is "search-folders" then
+				set optionsMap to my parseOptions(argv, 2)
+				return my searchFoldersToJSON(optionsMap)
+			else if requestedMode is "folder-detail" then
+				if (count of argv) < 2 then error "folder-detail requires a folder id or name."
+				set folderItem to my findFolder(item 2 of argv)
+				return my detailFolderToJSON(folderItem)
+			else if requestedMode is "create-folder" then
+				set optionsMap to my parseOptions(argv, 2)
+				set folderItem to my createFolder(optionsMap)
+				return my folderOperationToJSON("created", folderItem)
+			else if requestedMode is "update-folder" then
+				if (count of argv) < 2 then error "update-folder requires a folder id or name."
+				set folderItem to my findFolder(item 2 of argv)
+				set optionsMap to my parseOptions(argv, 3)
+				my updateFolder(folderItem, optionsMap)
+				return my folderOperationToJSON("updated", folderItem)
+			else if requestedMode is "delete-folder" then
+				if (count of argv) < 2 then error "delete-folder requires a folder id or name."
+				set folderItem to my findFolder(item 2 of argv)
+				set deletedFolderJSON to my detailFolderToJSON(folderItem)
+				delete folderItem
+				return "{\"ok\":true,\"operation\":\"deleted\",\"folder\":" & deletedFolderJSON & "}"
+			else if requestedMode is "tags" then
+				set tagItems to every «class FCfc»
+				return my tagsToJSON(tagItems)
+			else if requestedMode is "search-tags" then
+				set optionsMap to my parseOptions(argv, 2)
+				return my searchTagsToJSON(optionsMap)
+			else if requestedMode is "tag-detail" then
+				if (count of argv) < 2 then error "tag-detail requires a tag id or name."
+				set tagItem to my findTag(item 2 of argv)
+				return my detailTagToJSON(tagItem)
+			else if requestedMode is "create-tag" then
+				set optionsMap to my parseOptions(argv, 2)
+				set tagItem to my createTag(optionsMap)
+				return my tagOperationToJSON("created", tagItem)
+			else if requestedMode is "update-tag" then
+				if (count of argv) < 2 then error "update-tag requires a tag id or name."
+				set tagItem to my findTag(item 2 of argv)
+				set optionsMap to my parseOptions(argv, 3)
+				my updateTag(tagItem, optionsMap)
+				return my tagOperationToJSON("updated", tagItem)
+			else if requestedMode is "delete-tag" then
+				if (count of argv) < 2 then error "delete-tag requires a tag id or name."
+				set tagItem to my findTag(item 2 of argv)
+				set deletedTagJSON to my detailTagToJSON(tagItem)
+				delete tagItem
+				return "{\"ok\":true,\"operation\":\"deleted\",\"tag\":" & deletedTagJSON & "}"
 			else if requestedMode is "search-projects" then
 				set optionsMap to my parseOptions(argv, 2)
 				return my searchProjectsToJSON(optionsMap)
@@ -101,18 +153,57 @@ on createProject(optionsMap)
 	tell application "/Applications/OmniFocus.app"
 		tell front document
 			set folderName to my optionValue(optionsMap, "folder")
-			if folderName is not "" then
-				set targetFolder to my findFolder(folderName)
-				set projectItem to make new project at end of projects of targetFolder with properties {name:projectName}
-			else
-				set projectItem to make new project at end of projects with properties {name:projectName}
-			end if
+			set projectItem to make new project at end of projects with properties {name:projectName}
 		end tell
 	end tell
 	
 	my updateProject(projectItem, optionsMap)
 	return projectItem
 end createProject
+
+on createFolder(optionsMap)
+	set folderName to my optionValue(optionsMap, "name")
+	if folderName is "" then set folderName to my optionValue(optionsMap, "title")
+	if folderName is "" then error "create-folder requires name=<folder title>."
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set parentFolderName to my optionValue(optionsMap, "folder")
+			if parentFolderName is "" then set parentFolderName to my optionValue(optionsMap, "parent")
+			if parentFolderName is not "" then
+				set parentFolder to my findFolder(parentFolderName)
+				set folderItem to make new folder at end of folders of parentFolder with properties {name:folderName}
+			else
+				set folderItem to make new folder at end of folders with properties {name:folderName}
+			end if
+		end tell
+	end tell
+	
+	my updateFolder(folderItem, optionsMap)
+	return folderItem
+end createFolder
+
+on createTag(optionsMap)
+	set tagName to my optionValue(optionsMap, "name")
+	if tagName is "" then set tagName to my optionValue(optionsMap, "title")
+	if tagName is "" then error "create-tag requires name=<tag title>."
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set parentTagName to my optionValue(optionsMap, "tag")
+			if parentTagName is "" then set parentTagName to my optionValue(optionsMap, "parent")
+			if parentTagName is not "" then
+				set parentTag to my findTag(parentTagName)
+				set tagItem to make new tag at end of tags of parentTag with properties {name:tagName}
+			else
+				set tagItem to make new tag at end of tags with properties {name:tagName}
+			end if
+		end tell
+	end tell
+	
+	my updateTag(tagItem, optionsMap)
+	return tagItem
+end createTag
 
 on updateTask(taskItem, optionsMap)
 	tell application "/Applications/OmniFocus.app"
@@ -135,6 +226,9 @@ on updateTask(taskItem, optionsMap)
 				set «property FCpt» of taskItem to my findTag(tagName)
 			end if
 		end if
+		if my hasOption(optionsMap, "tags") then my setTagsOnItem(taskItem, my optionValue(optionsMap, "tags"))
+		if my hasOption(optionsMap, "addTag") then my addTagsToItem(taskItem, my optionValue(optionsMap, "addTag"))
+		if my hasOption(optionsMap, "removeTag") then my removeTagsFromItem(taskItem, my optionValue(optionsMap, "removeTag"))
 		
 		if my hasOption(optionsMap, "project") then
 			set projectName to my optionValue(optionsMap, "project")
@@ -169,6 +263,10 @@ on updateProject(projectItem, optionsMap)
 		if my hasOption(optionsMap, "due") then set «property FCDd» of projectItem to my optionalDateValue(my optionValue(optionsMap, "due"))
 		if my hasOption(optionsMap, "defer") then set «property FCDs» of projectItem to my optionalDateValue(my optionValue(optionsMap, "defer"))
 		
+		if my hasOption(optionsMap, "folder") then
+			my moveProjectToFolder(projectItem, my optionValue(optionsMap, "folder"))
+		end if
+		
 		if my hasOption(optionsMap, "tag") then
 			set tagName to my optionValue(optionsMap, "tag")
 			if tagName is "" then
@@ -177,16 +275,9 @@ on updateProject(projectItem, optionsMap)
 				set «property FCpt» of projectItem to my findTag(tagName)
 			end if
 		end if
-		
-		if my hasOption(optionsMap, "folder") then
-			set folderName to my optionValue(optionsMap, "folder")
-			if folderName is not "" then
-				set targetFolder to my findFolder(folderName)
-				move projectItem to end of projects of targetFolder
-			else
-				move projectItem to end of projects
-			end if
-		end if
+		if my hasOption(optionsMap, "tags") then my setTagsOnItem(projectItem, my optionValue(optionsMap, "tags"))
+		if my hasOption(optionsMap, "addTag") then my addTagsToItem(projectItem, my optionValue(optionsMap, "addTag"))
+		if my hasOption(optionsMap, "removeTag") then my removeTagsFromItem(projectItem, my optionValue(optionsMap, "removeTag"))
 		
 		if my hasOption(optionsMap, "status") then my setProjectStatus(projectItem, my optionValue(optionsMap, "status"))
 		
@@ -207,6 +298,119 @@ on updateProject(projectItem, optionsMap)
 		end if
 	end tell
 end updateProject
+
+on updateFolder(folderItem, optionsMap)
+	tell application "/Applications/OmniFocus.app"
+		set newName to my optionValue(optionsMap, "name")
+		if newName is "" then set newName to my optionValue(optionsMap, "title")
+		if newName is not "" then set name of folderItem to newName
+		if my hasOption(optionsMap, "note") then set note of folderItem to my optionValue(optionsMap, "note")
+		if my hasOption(optionsMap, "hidden") then set hidden of folderItem to my boolValue(my optionValue(optionsMap, "hidden"))
+		if my hasOption(optionsMap, "folder") then my moveFolderToFolder(folderItem, my optionValue(optionsMap, "folder"))
+		if my hasOption(optionsMap, "parent") then my moveFolderToFolder(folderItem, my optionValue(optionsMap, "parent"))
+	end tell
+end updateFolder
+
+on updateTag(tagItem, optionsMap)
+	tell application "/Applications/OmniFocus.app"
+		set newName to my optionValue(optionsMap, "name")
+		if newName is "" then set newName to my optionValue(optionsMap, "title")
+		if newName is not "" then set name of tagItem to newName
+		if my hasOption(optionsMap, "note") then set note of tagItem to my optionValue(optionsMap, "note")
+		if my hasOption(optionsMap, "allowsNextAction") then set «property FCNA» of tagItem to my boolValue(my optionValue(optionsMap, "allowsNextAction"))
+		if my hasOption(optionsMap, "hidden") then set hidden of tagItem to my boolValue(my optionValue(optionsMap, "hidden"))
+		if my hasOption(optionsMap, "tag") then my moveTagToTag(tagItem, my optionValue(optionsMap, "tag"))
+		if my hasOption(optionsMap, "parent") then my moveTagToTag(tagItem, my optionValue(optionsMap, "parent"))
+	end tell
+end updateTag
+
+on moveProjectToFolder(projectItem, folderName)
+	tell application "/Applications/OmniFocus.app"
+		if folderName is "" or folderName is "none" or folderName is "null" then
+			move projectItem to end of sections
+		else
+			set targetFolder to my findFolder(folderName)
+			move projectItem to end of sections of targetFolder
+		end if
+	end tell
+end moveProjectToFolder
+
+on moveFolderToFolder(folderItem, folderName)
+	tell application "/Applications/OmniFocus.app"
+		if folderName is "" or folderName is "none" or folderName is "null" then
+			move folderItem to end of sections
+		else
+			set targetFolder to my findFolder(folderName)
+			move folderItem to end of sections of targetFolder
+		end if
+	end tell
+end moveFolderToFolder
+
+on moveTagToTag(tagItem, parentTagName)
+	tell application "/Applications/OmniFocus.app"
+		if parentTagName is "" or parentTagName is "none" or parentTagName is "null" then
+			move tagItem to end of tags
+		else
+			set parentTag to my findTag(parentTagName)
+			move tagItem to end of tags of parentTag
+		end if
+	end tell
+end moveTagToTag
+
+on setTagsOnItem(targetItem, tagListText)
+	tell application "/Applications/OmniFocus.app"
+		try
+			set existingTags to tags of targetItem
+			repeat with tagItem in existingTags
+				remove tagItem from targetItem
+			end repeat
+		end try
+		try
+			set «property FCpt» of targetItem to missing value
+		end try
+	end tell
+	my addTagsToItem(targetItem, tagListText)
+end setTagsOnItem
+
+on addTagsToItem(targetItem, tagListText)
+	set tagNames to my splitList(tagListText)
+	set fallbackPrimarySet to false
+	tell application "/Applications/OmniFocus.app"
+		repeat with tagName in tagNames
+			if (tagName as text) is not "" then
+				set tagItem to my findTag(tagName as text)
+				try
+					add tagItem to tags of targetItem
+				on error
+					if fallbackPrimarySet is false then
+						set «property FCpt» of targetItem to tagItem
+						set fallbackPrimarySet to true
+					end if
+				end try
+			end if
+		end repeat
+	end tell
+end addTagsToItem
+
+on removeTagsFromItem(targetItem, tagListText)
+	set tagNames to my splitList(tagListText)
+	tell application "/Applications/OmniFocus.app"
+		repeat with tagName in tagNames
+			if (tagName as text) is not "" then
+				set tagItem to my findTag(tagName as text)
+				try
+					remove tagItem from tags of targetItem
+				on error
+					try
+						if «property FCpt» of targetItem is not missing value then
+							if id of «property FCpt» of targetItem is id of tagItem then set «property FCpt» of targetItem to missing value
+						end if
+					end try
+				end try
+			end if
+		end repeat
+	end tell
+end removeTagsFromItem
 
 on setProjectStatus(projectItem, statusText)
 	tell application "/Applications/OmniFocus.app"
@@ -367,6 +571,62 @@ on searchProjectsToJSON(optionsMap)
 	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"projects\":[" & my joinText(jsonItems, ",") & "]}"
 end searchProjectsToJSON
 
+on searchFoldersToJSON(optionsMap)
+	set searchQuery to my optionValue(optionsMap, "query")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "q")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "name")
+	if searchQuery is "" then error "search-folders requires query=<text>."
+	
+	set resultLimit to 50
+	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
+	if resultLimit < 1 then set resultLimit to 1
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set folderItems to every «class FCff»
+		end tell
+	end tell
+	
+	set jsonItems to {}
+	set matchedCount to 0
+	repeat with folderItem in folderItems
+		if my folderMatchesQuery(folderItem, searchQuery) then
+			set matchedCount to matchedCount + 1
+			if matchedCount ≤ resultLimit then set end of jsonItems to my detailFolderToJSON(folderItem)
+		end if
+	end repeat
+	
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"folders\":[" & my joinText(jsonItems, ",") & "]}"
+end searchFoldersToJSON
+
+on searchTagsToJSON(optionsMap)
+	set searchQuery to my optionValue(optionsMap, "query")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "q")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "name")
+	if searchQuery is "" then error "search-tags requires query=<text>."
+	
+	set resultLimit to 50
+	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
+	if resultLimit < 1 then set resultLimit to 1
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set tagItems to every «class FCfc»
+		end tell
+	end tell
+	
+	set jsonItems to {}
+	set matchedCount to 0
+	repeat with tagItem in tagItems
+		if my tagMatchesQuery(tagItem, searchQuery) then
+			set matchedCount to matchedCount + 1
+			if matchedCount ≤ resultLimit then set end of jsonItems to my detailTagToJSON(tagItem)
+		end if
+	end repeat
+	
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"tags\":[" & my joinText(jsonItems, ",") & "]}"
+end searchTagsToJSON
+
 on shouldIncludeTaskForSearch(taskItem, searchScope)
 	if searchScope is "all" then return true
 	return my shouldIncludeTask(taskItem, searchScope)
@@ -387,6 +647,22 @@ on projectMatchesQuery(projectItem, searchQuery)
 	end ignoring
 	return false
 end projectMatchesQuery
+
+on folderMatchesQuery(folderItem, searchQuery)
+	set haystackText to my folderSearchText(folderItem)
+	ignoring case
+		if haystackText contains searchQuery then return true
+	end ignoring
+	return false
+end folderMatchesQuery
+
+on tagMatchesQuery(tagItem, searchQuery)
+	set haystackText to my tagSearchText(tagItem)
+	ignoring case
+		if haystackText contains searchQuery then return true
+	end ignoring
+	return false
+end tagMatchesQuery
 
 on taskSearchText(taskItem)
 	tell application "/Applications/OmniFocus.app"
@@ -435,6 +711,31 @@ on projectSearchText(projectItem)
 	return my joinText(parts, " ")
 end projectSearchText
 
+on folderSearchText(folderItem)
+	tell application "/Applications/OmniFocus.app"
+		tell folderItem
+			set parts to {my safeValue(id), my safeValue(name), my safeValue(note)}
+			try
+				set parentItem to container
+				if parentItem is not missing value then set end of parts to my safeValue(name of parentItem)
+			end try
+		end tell
+	end tell
+	return my joinText(parts, " ")
+end folderSearchText
+
+on tagSearchText(tagItem)
+	tell application "/Applications/OmniFocus.app"
+		tell tagItem
+			set parts to {my safeValue(id), my safeValue(name), my safeValue(note)}
+			try
+				if container is not missing value then set end of parts to my safeValue(name of container)
+			end try
+		end tell
+	end tell
+	return my joinText(parts, " ")
+end tagSearchText
+
 on tasksToJSON(taskItems, requestedMode)
 	set jsonItems to {}
 	repeat with taskItem in taskItems
@@ -453,6 +754,22 @@ on projectsToJSON(projectItems, optionsMap)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end projectsToJSON
+
+on foldersToJSON(folderItems)
+	set jsonItems to {}
+	repeat with folderItem in folderItems
+		set end of jsonItems to my folderToJSON(folderItem)
+	end repeat
+	return "[" & my joinText(jsonItems, ",") & "]"
+end foldersToJSON
+
+on tagsToJSON(tagItems)
+	set jsonItems to {}
+	repeat with tagItem in tagItems
+		set end of jsonItems to my tagToJSON(tagItem)
+	end repeat
+	return "[" & my joinText(jsonItems, ",") & "]"
+end tagsToJSON
 
 on shouldIncludeTask(taskItem, requestedMode)
 	tell application "/Applications/OmniFocus.app"
@@ -491,6 +808,14 @@ end operationToJSON
 on projectOperationToJSON(operationName, projectItem)
 	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"project\":" & my detailProjectToJSON(projectItem) & "}"
 end projectOperationToJSON
+
+on folderOperationToJSON(operationName, folderItem)
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"folder\":" & my detailFolderToJSON(folderItem) & "}"
+end folderOperationToJSON
+
+on tagOperationToJSON(operationName, tagItem)
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"tag\":" & my detailTagToJSON(tagItem) & "}"
+end tagOperationToJSON
 
 on taskToJSON(taskItem)
 	tell application "/Applications/OmniFocus.app"
@@ -619,6 +944,61 @@ on projectToJSON(projectItem)
 		"}"
 end projectToJSON
 
+on folderToJSON(folderItem)
+	tell application "/Applications/OmniFocus.app"
+		tell folderItem
+			set folderId to my safeValue(id)
+			set folderName to my safeValue(name)
+			set folderNote to my safeValue(note)
+			set folderHidden to hidden
+			
+			set parentName to ""
+			try
+				set parentItem to container
+				if parentItem is not missing value then set parentName to my safeValue(name of parentItem)
+			end try
+		end tell
+	end tell
+	
+	return "{" & ¬
+		my quoteKeyValue("id", folderId) & "," & ¬
+		my quoteKeyValue("name", folderName) & "," & ¬
+		my quoteKeyValue("parent", parentName) & "," & ¬
+		my boolKeyValue("hidden", folderHidden) & "," & ¬
+		my quoteKeyValue("note", folderNote) & ¬
+		"}"
+end folderToJSON
+
+on tagToJSON(tagItem)
+	tell application "/Applications/OmniFocus.app"
+		tell tagItem
+			set tagId to my safeValue(id)
+			set tagName to my safeValue(name)
+			set tagNote to my safeValue(note)
+			set tagAllowsNext to «property FCNA»
+			set tagHidden to hidden
+			set tagAvailableCount to my numberValue(«property FCa#»)
+			set tagRemainingCount to my numberValue(«property FCr#»)
+			
+			set parentName to ""
+			try
+				if container is not missing value then set parentName to my safeValue(name of container)
+			end try
+		end tell
+	end tell
+	
+	return "{" & ¬
+		my quoteKeyValue("id", tagId) & "," & ¬
+		my quoteKeyValue("name", tagName) & "," & ¬
+		my quoteKeyValue("parent", parentName) & "," & ¬
+		my boolKeyValue("allowsNextAction", tagAllowsNext) & "," & ¬
+		my boolKeyValue("hidden", tagHidden) & "," & ¬
+		"\"availableTaskCount\":" & tagAvailableCount & "," & ¬
+		"\"remainingTaskCount\":" & tagRemainingCount & "," & ¬
+		my quoteKeyValue("note", tagNote) & ¬
+		"}"
+end tagToJSON
+
 on detailProjectToJSON(projectItem)
 	tell application "/Applications/OmniFocus.app"
 		tell projectItem
@@ -644,6 +1024,13 @@ on detailProjectToJSON(projectItem)
 			try
 				if «property FCpt» is not missing value then set tagName to my safeValue(name of «property FCpt»)
 			end try
+			
+			set tagNames to {}
+			try
+				repeat with tagItem in tags
+					set end of tagNames to "\"" & my escapeJSON(name of tagItem as text) & "\""
+				end repeat
+			end try
 		end tell
 	end tell
 	
@@ -665,9 +1052,48 @@ on detailProjectToJSON(projectItem)
 		"\"taskCount\":" & projectTaskCount & "," & ¬
 		"\"availableTaskCount\":" & projectAvailableTaskCount & "," & ¬
 		"\"completedTaskCount\":" & projectCompletedTaskCount & "," & ¬
-		my quoteKeyValue("tag", tagName) & ¬
+		my quoteKeyValue("tag", tagName) & "," & ¬
+		"\"tags\":[" & my joinText(tagNames, ",") & "]" & ¬
 		"}"
 end detailProjectToJSON
+
+on detailFolderToJSON(folderItem)
+	tell application "/Applications/OmniFocus.app"
+		tell folderItem
+			set baseJSON to my folderToJSON(folderItem)
+			set folderEffectivelyHidden to «property FCHe»
+			set folderCreated to my dateValue(«property FCDa»)
+			set folderModified to my dateValue(«property FCDm»)
+			set folderCount to my numberValue(number of folders)
+			set projectCount to my numberValue(number of projects)
+		end tell
+	end tell
+	
+	set baseWithoutClose to text 1 thru -2 of baseJSON
+	return baseWithoutClose & "," & ¬
+		my boolKeyValue("effectivelyHidden", folderEffectivelyHidden) & "," & ¬
+		my quoteKeyValue("created", folderCreated) & "," & ¬
+		my quoteKeyValue("modified", folderModified) & "," & ¬
+		"\"folderCount\":" & folderCount & "," & ¬
+		"\"projectCount\":" & projectCount & ¬
+		"}"
+end detailFolderToJSON
+
+on detailTagToJSON(tagItem)
+	tell application "/Applications/OmniFocus.app"
+		tell tagItem
+			set baseJSON to my tagToJSON(tagItem)
+			set tagEffectivelyHidden to «property FCHe»
+			set childCount to my numberValue(number of tags)
+		end tell
+	end tell
+	
+	set baseWithoutClose to text 1 thru -2 of baseJSON
+	return baseWithoutClose & "," & ¬
+		my boolKeyValue("effectivelyHidden", tagEffectivelyHidden) & "," & ¬
+		"\"childCount\":" & childCount & ¬
+		"}"
+end detailTagToJSON
 
 on parseOptions(argv, startIndex)
 	set optionsMap to {}
@@ -799,6 +1225,32 @@ on replaceText(searchText, replacementText, sourceText)
 	set AppleScript's text item delimiters to oldDelimiters
 	return replacedText
 end replaceText
+
+on trimText(rawText)
+	set cleanText to rawText as text
+	repeat while cleanText starts with " "
+		if (length of cleanText) is 1 then return ""
+		set cleanText to text 2 thru -1 of cleanText
+	end repeat
+	repeat while cleanText ends with " "
+		if (length of cleanText) is 1 then return ""
+		set cleanText to text 1 thru -2 of cleanText
+	end repeat
+	return cleanText
+end trimText
+
+on splitList(rawText)
+	set oldDelimiters to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to ","
+	set rawItems to text items of (rawText as text)
+	set AppleScript's text item delimiters to oldDelimiters
+	set cleanItems to {}
+	repeat with rawItem in rawItems
+		set cleanItem to my trimText(rawItem as text)
+		if cleanItem is not "" then set end of cleanItems to cleanItem
+	end repeat
+	return cleanItems
+end splitList
 
 on joinText(textItems, delimiter)
 	set oldDelimiters to AppleScript's text item delimiters
