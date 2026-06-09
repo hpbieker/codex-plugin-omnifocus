@@ -1,0 +1,26 @@
+{
+  "name": "omnifocus",
+  "version": "0.1.0",
+  "description": "Read and manage OmniFocus tasks via AppleScript.",
+  "author": {
+    "name": "Hans Petter Bieker"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OmniFocus",
+    "shortDescription": "Read and manage OmniFocus tasks.",
+    "longDescription": "OmniFocus lets Codex read local OmniFocus tasks and projects, inspect task details, and create, update, or delete tasks through an AppleScript helper.",
+    "developerName": "Hans Petter Bieker",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "brandColor": "#F27500",
+    "composerIcon": "./assets/omnifocus-icon.png",
+    "logo": "./assets/omnifocus-icon.png",
+    "defaultPrompt": [
+      "Show my OmniFocus inbox.",
+      "Summarize due OmniFocus tasks.",
+      "List my OmniFocus projects."
+    ]
+  }
+}
