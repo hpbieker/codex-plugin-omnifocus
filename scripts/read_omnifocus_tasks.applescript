@@ -2,16 +2,40 @@ on run argv
 	set requestedMode to "remaining"
 	if (count of argv) > 0 then set requestedMode to item 1 of argv
 	
-	set validModes to {"inbox", "available", "remaining", "flagged", "due", "deferred", "completed", "projects", "search", "detail", "create", "update", "delete"}
+	set validModes to {"inbox", "available", "remaining", "flagged", "due", "deferred", "completed", "projects", "search-projects", "project-detail", "create-project", "update-project", "delete-project", "search", "detail", "create", "update", "delete"}
 	if validModes does not contain requestedMode then
-		error "Unknown mode '" & requestedMode & "'. Use one of: inbox, available, remaining, flagged, due, deferred, completed, projects, search, detail, create, update, delete."
+		error "Unknown mode '" & requestedMode & "'. Use one of: inbox, available, remaining, flagged, due, deferred, completed, projects, search-projects, project-detail, create-project, update-project, delete-project, search, detail, create, update, delete."
 	end if
 	
 	tell application "/Applications/OmniFocus.app"
 		tell front document
 			if requestedMode is "projects" then
+				set optionsMap to my parseOptions(argv, 2)
 				set projectItems to every «class FCfx»
-				return my projectsToJSON(projectItems)
+				return my projectsToJSON(projectItems, optionsMap)
+			else if requestedMode is "search-projects" then
+				set optionsMap to my parseOptions(argv, 2)
+				return my searchProjectsToJSON(optionsMap)
+			else if requestedMode is "project-detail" then
+				if (count of argv) < 2 then error "project-detail requires a project id or name."
+				set projectItem to my findProject(item 2 of argv)
+				return my detailProjectToJSON(projectItem)
+			else if requestedMode is "create-project" then
+				set optionsMap to my parseOptions(argv, 2)
+				set projectItem to my createProject(optionsMap)
+				return my projectOperationToJSON("created", projectItem)
+			else if requestedMode is "update-project" then
+				if (count of argv) < 2 then error "update-project requires a project id or name."
+				set projectItem to my findProject(item 2 of argv)
+				set optionsMap to my parseOptions(argv, 3)
+				my updateProject(projectItem, optionsMap)
+				return my projectOperationToJSON("updated", projectItem)
+			else if requestedMode is "delete-project" then
+				if (count of argv) < 2 then error "delete-project requires a project id or name."
+				set projectItem to my findProject(item 2 of argv)
+				set deletedProjectJSON to my detailProjectToJSON(projectItem)
+				delete projectItem
+				return "{\"ok\":true,\"operation\":\"deleted\",\"project\":" & deletedProjectJSON & "}"
 			else if requestedMode is "search" then
 				set optionsMap to my parseOptions(argv, 2)
 				return my searchTasksToJSON(optionsMap)
@@ -69,6 +93,27 @@ on createTask(optionsMap)
 	return taskItem
 end createTask
 
+on createProject(optionsMap)
+	set projectName to my optionValue(optionsMap, "name")
+	if projectName is "" then set projectName to my optionValue(optionsMap, "title")
+	if projectName is "" then error "create-project requires name=<project title>."
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set folderName to my optionValue(optionsMap, "folder")
+			if folderName is not "" then
+				set targetFolder to my findFolder(folderName)
+				set projectItem to make new project at end of projects of targetFolder with properties {name:projectName}
+			else
+				set projectItem to make new project at end of projects with properties {name:projectName}
+			end if
+		end tell
+	end tell
+	
+	my updateProject(projectItem, optionsMap)
+	return projectItem
+end createProject
+
 on updateTask(taskItem, optionsMap)
 	tell application "/Applications/OmniFocus.app"
 		set newName to my optionValue(optionsMap, "name")
@@ -109,6 +154,76 @@ on updateTask(taskItem, optionsMap)
 	end tell
 end updateTask
 
+on updateProject(projectItem, optionsMap)
+	tell application "/Applications/OmniFocus.app"
+		set newName to my optionValue(optionsMap, "name")
+		if newName is "" then set newName to my optionValue(optionsMap, "title")
+		if newName is not "" then set name of projectItem to newName
+		
+		if my hasOption(optionsMap, "note") then set note of projectItem to my optionValue(optionsMap, "note")
+		if my hasOption(optionsMap, "flagged") then set flagged of projectItem to my boolValue(my optionValue(optionsMap, "flagged"))
+		if my hasOption(optionsMap, "sequential") then set sequential of projectItem to my boolValue(my optionValue(optionsMap, "sequential"))
+		if my hasOption(optionsMap, "completedByChildren") then set «property FCbc» of projectItem to my boolValue(my optionValue(optionsMap, "completedByChildren"))
+		if my hasOption(optionsMap, "estimatedMinutes") then set «property FCEM» of projectItem to my intValue(my optionValue(optionsMap, "estimatedMinutes"))
+		if my hasOption(optionsMap, "estimated") then set «property FCEM» of projectItem to my intValue(my optionValue(optionsMap, "estimated"))
+		if my hasOption(optionsMap, "due") then set «property FCDd» of projectItem to my optionalDateValue(my optionValue(optionsMap, "due"))
+		if my hasOption(optionsMap, "defer") then set «property FCDs» of projectItem to my optionalDateValue(my optionValue(optionsMap, "defer"))
+		
+		if my hasOption(optionsMap, "tag") then
+			set tagName to my optionValue(optionsMap, "tag")
+			if tagName is "" then
+				set «property FCpt» of projectItem to missing value
+			else
+				set «property FCpt» of projectItem to my findTag(tagName)
+			end if
+		end if
+		
+		if my hasOption(optionsMap, "folder") then
+			set folderName to my optionValue(optionsMap, "folder")
+			if folderName is not "" then
+				set targetFolder to my findFolder(folderName)
+				move projectItem to end of projects of targetFolder
+			else
+				move projectItem to end of projects
+			end if
+		end if
+		
+		if my hasOption(optionsMap, "status") then my setProjectStatus(projectItem, my optionValue(optionsMap, "status"))
+		
+		if my hasOption(optionsMap, "completed") then
+			if my boolValue(my optionValue(optionsMap, "completed")) then
+				mark complete projectItem
+			else
+				mark incomplete projectItem
+			end if
+		end if
+		
+		if my hasOption(optionsMap, "dropped") then
+			if my boolValue(my optionValue(optionsMap, "dropped")) then
+				mark dropped projectItem
+			else
+				mark incomplete projectItem
+			end if
+		end if
+	end tell
+end updateProject
+
+on setProjectStatus(projectItem, statusText)
+	tell application "/Applications/OmniFocus.app"
+		if statusText is "active" or statusText is "active status" then
+			set status of projectItem to active status
+		else if statusText is "on hold" or statusText is "on hold status" then
+			set status of projectItem to on hold status
+		else if statusText is "done" or statusText is "done status" or statusText is "completed" then
+			set status of projectItem to done status
+		else if statusText is "dropped" or statusText is "dropped status" then
+			set status of projectItem to dropped status
+		else
+			error "Unknown project status '" & statusText & "'. Use active, on hold, done, or dropped."
+		end if
+	end tell
+end setProjectStatus
+
 on findTaskByID(taskID)
 	tell application "/Applications/OmniFocus.app"
 		tell front document
@@ -137,6 +252,19 @@ on findProject(projectNameOrID)
 	end tell
 	error "No OmniFocus project found with id or name '" & projectNameOrID & "'."
 end findProject
+
+on findFolder(folderNameOrID)
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set folderItems to every «class FCff»
+			repeat with folderItem in folderItems
+				if id of folderItem is folderNameOrID then return folderItem
+				if name of folderItem is folderNameOrID then return folderItem
+			end repeat
+		end tell
+	end tell
+	error "No OmniFocus folder found with id or name '" & folderNameOrID & "'."
+end findFolder
 
 on findTag(tagNameOrID)
 	tell application "/Applications/OmniFocus.app"
@@ -197,6 +325,48 @@ on searchTasksToJSON(optionsMap)
 	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
 end searchTasksToJSON
 
+on searchProjectsToJSON(optionsMap)
+	set searchQuery to my optionValue(optionsMap, "query")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "q")
+	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "name")
+	if searchQuery is "" then error "search-projects requires query=<text>."
+	
+	set searchScope to my optionValue(optionsMap, "scope")
+	if searchScope is "" then set searchScope to "remaining"
+	
+	set includeDetails to false
+	if my hasOption(optionsMap, "detail") then set includeDetails to my boolValue(my optionValue(optionsMap, "detail"))
+	
+	set resultLimit to 50
+	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
+	if resultLimit < 1 then set resultLimit to 1
+	
+	tell application "/Applications/OmniFocus.app"
+		tell front document
+			set projectItems to every «class FCfx»
+		end tell
+	end tell
+	
+	set jsonItems to {}
+	set matchedCount to 0
+	repeat with projectItem in projectItems
+		if my shouldIncludeProject(projectItem, searchScope) then
+			if my projectMatchesQuery(projectItem, searchQuery) then
+				set matchedCount to matchedCount + 1
+				if matchedCount ≤ resultLimit then
+					if includeDetails then
+						set end of jsonItems to my detailProjectToJSON(projectItem)
+					else
+						set end of jsonItems to my projectToJSON(projectItem)
+					end if
+				end if
+			end if
+		end if
+	end repeat
+	
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"projects\":[" & my joinText(jsonItems, ",") & "]}"
+end searchProjectsToJSON
+
 on shouldIncludeTaskForSearch(taskItem, searchScope)
 	if searchScope is "all" then return true
 	return my shouldIncludeTask(taskItem, searchScope)
@@ -209,6 +379,14 @@ on taskMatchesQuery(taskItem, searchQuery)
 	end ignoring
 	return false
 end taskMatchesQuery
+
+on projectMatchesQuery(projectItem, searchQuery)
+	set haystackText to my projectSearchText(projectItem)
+	ignoring case
+		if haystackText contains searchQuery then return true
+	end ignoring
+	return false
+end projectMatchesQuery
 
 on taskSearchText(taskItem)
 	tell application "/Applications/OmniFocus.app"
@@ -240,6 +418,23 @@ on taskSearchText(taskItem)
 	return my joinText(parts, " ")
 end taskSearchText
 
+on projectSearchText(projectItem)
+	tell application "/Applications/OmniFocus.app"
+		tell projectItem
+			set parts to {my safeValue(id), my safeValue(name), my safeValue(note), my safeValue(status as text)}
+			
+			try
+				if folder is not missing value then set end of parts to my safeValue(name of folder)
+			end try
+			
+			try
+				if «property FCpt» is not missing value then set end of parts to my safeValue(name of «property FCpt»)
+			end try
+		end tell
+	end tell
+	return my joinText(parts, " ")
+end projectSearchText
+
 on tasksToJSON(taskItems, requestedMode)
 	set jsonItems to {}
 	repeat with taskItem in taskItems
@@ -248,12 +443,13 @@ on tasksToJSON(taskItems, requestedMode)
 	return "[" & my joinText(jsonItems, ",") & "]"
 end tasksToJSON
 
-on projectsToJSON(projectItems)
+on projectsToJSON(projectItems, optionsMap)
+	set projectScope to my optionValue(optionsMap, "scope")
+	if projectScope is "" then set projectScope to "remaining"
+	
 	set jsonItems to {}
 	repeat with projectItem in projectItems
-		tell application "/Applications/OmniFocus.app"
-			if completed of projectItem is false then set end of jsonItems to my projectToJSON(projectItem)
-		end tell
+		if my shouldIncludeProject(projectItem, projectScope) then set end of jsonItems to my projectToJSON(projectItem)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end projectsToJSON
@@ -274,9 +470,27 @@ on shouldIncludeTask(taskItem, requestedMode)
 	return false
 end shouldIncludeTask
 
+on shouldIncludeProject(projectItem, projectScope)
+	tell application "/Applications/OmniFocus.app"
+		tell projectItem
+			if projectScope is "all" then return true
+			if projectScope is "completed" or projectScope is "done" then return completed
+			if projectScope is "dropped" then return «property FC-d»
+			if projectScope is "on-hold" or projectScope is "on hold" then return status is on hold status
+			if projectScope is "active" then return status is active status
+			if projectScope is "remaining" then return completed is false
+		end tell
+	end tell
+	error "Unknown project scope '" & projectScope & "'. Use remaining, active, on-hold, completed, dropped, or all."
+end shouldIncludeProject
+
 on operationToJSON(operationName, taskItem)
 	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"task\":" & my detailTaskToJSON(taskItem) & "}"
 end operationToJSON
+
+on projectOperationToJSON(operationName, projectItem)
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"project\":" & my detailProjectToJSON(projectItem) & "}"
+end projectOperationToJSON
 
 on taskToJSON(taskItem)
 	tell application "/Applications/OmniFocus.app"
@@ -404,6 +618,56 @@ on projectToJSON(projectItem)
 		my quoteKeyValue("note", projectNote) & ¬
 		"}"
 end projectToJSON
+
+on detailProjectToJSON(projectItem)
+	tell application "/Applications/OmniFocus.app"
+		tell projectItem
+			set baseJSON to my projectToJSON(projectItem)
+			set projectFlagged to flagged
+			set projectBlocked to blocked
+			set projectSequential to sequential
+			set projectCompletedByChildren to «property FCbc»
+			set projectDropped to «property FC-d»
+			set projectEffectivelyCompleted to «property FCce»
+			set projectEffectivelyDropped to «property FC-e»
+			set projectCreated to my dateValue(«property FCDa»)
+			set projectModified to my dateValue(«property FCDm»)
+			set projectCompletedDate to my dateValue(«property FCdc»)
+			set projectEffectiveDue to my dateValue(«property FCde»)
+			set projectEffectiveDefer to my dateValue(«property FCse»)
+			set projectEstimate to my numberValue(«property FCEM»)
+			set projectTaskCount to my numberValue(«property FC#t»)
+			set projectAvailableTaskCount to my numberValue(«property FC#a»)
+			set projectCompletedTaskCount to my numberValue(«property FC#c»)
+			
+			set tagName to ""
+			try
+				if «property FCpt» is not missing value then set tagName to my safeValue(name of «property FCpt»)
+			end try
+		end tell
+	end tell
+	
+	set baseWithoutClose to text 1 thru -2 of baseJSON
+	return baseWithoutClose & "," & ¬
+		my boolKeyValue("flagged", projectFlagged) & "," & ¬
+		my boolKeyValue("blocked", projectBlocked) & "," & ¬
+		my boolKeyValue("sequential", projectSequential) & "," & ¬
+		my boolKeyValue("completedByChildren", projectCompletedByChildren) & "," & ¬
+		my boolKeyValue("dropped", projectDropped) & "," & ¬
+		my boolKeyValue("effectivelyCompleted", projectEffectivelyCompleted) & "," & ¬
+		my boolKeyValue("effectivelyDropped", projectEffectivelyDropped) & "," & ¬
+		my quoteKeyValue("created", projectCreated) & "," & ¬
+		my quoteKeyValue("modified", projectModified) & "," & ¬
+		my quoteKeyValue("completedDate", projectCompletedDate) & "," & ¬
+		my quoteKeyValue("effectiveDue", projectEffectiveDue) & "," & ¬
+		my quoteKeyValue("effectiveDefer", projectEffectiveDefer) & "," & ¬
+		"\"estimatedMinutes\":" & projectEstimate & "," & ¬
+		"\"taskCount\":" & projectTaskCount & "," & ¬
+		"\"availableTaskCount\":" & projectAvailableTaskCount & "," & ¬
+		"\"completedTaskCount\":" & projectCompletedTaskCount & "," & ¬
+		my quoteKeyValue("tag", tagName) & ¬
+		"}"
+end detailProjectToJSON
 
 on parseOptions(argv, startIndex)
 	set optionsMap to {}

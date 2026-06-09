@@ -1,11 +1,11 @@
 ---
 name: omnifocus
-description: Search, read, create, update, and delete OmniFocus tasks, including inbox, flagged, due, deferred, completed, available, remaining, projects, and task details.
+description: Search, read, create, update, and delete OmniFocus tasks and projects, including inbox, flagged, due, deferred, completed, available, remaining, project lists, project search, and task/project details.
 ---
 
 # OmniFocus
 
-Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus, inspect OmniFocus projects, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task, update a task, delete a task, or inspect detailed metadata for a specific task.
+Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus, inspect OmniFocus projects, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task or project, update a task or project, delete a task or project, or inspect detailed metadata for a specific task or project.
 
 ## Requirements
 
@@ -26,7 +26,12 @@ Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus
    - `due`: incomplete tasks with a due date.
    - `deferred`: incomplete tasks with a defer date.
    - `completed`: completed tasks.
-   - `projects`: incomplete projects.
+   - `projects [scope=remaining]`: projects. Supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`.
+   - `search-projects query=<text> [scope=remaining] [limit=50] [detail=false]`: search projects.
+   - `project-detail <project-id-or-name>`: full project details.
+   - `create-project name=<title> [note=...] [folder=...] [tag=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
+   - `update-project <project-id-or-name> name=... note=... completed=true status=... due=... defer=... folder=... tag=... flagged=true sequential=true estimatedMinutes=15`: update a project.
+   - `delete-project <project-id-or-name>`: delete a project.
    - `search query=<text> [scope=remaining] [limit=50] [detail=false]`: search tasks.
    - `detail <task-id>`: full task details.
    - `create name=<title> [note=...] [project=...] [tag=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
@@ -46,6 +51,11 @@ osascript ../../scripts/read_omnifocus_tasks.applescript inbox
 osascript ../../scripts/read_omnifocus_tasks.applescript flagged
 osascript ../../scripts/read_omnifocus_tasks.applescript due
 osascript ../../scripts/read_omnifocus_tasks.applescript projects
+osascript ../../scripts/read_omnifocus_tasks.applescript search-projects query="Energy" scope=all detail=true
+osascript ../../scripts/read_omnifocus_tasks.applescript project-detail <project-id-or-name>
+osascript ../../scripts/read_omnifocus_tasks.applescript create-project name="Project title" note="Optional note"
+osascript ../../scripts/read_omnifocus_tasks.applescript update-project <project-id-or-name> completed=true
+osascript ../../scripts/read_omnifocus_tasks.applescript delete-project <project-id-or-name>
 osascript ../../scripts/read_omnifocus_tasks.applescript search query="Natalia" limit=5
 osascript ../../scripts/read_omnifocus_tasks.applescript detail <task-id>
 osascript ../../scripts/read_omnifocus_tasks.applescript create name="Task title" note="Optional note"
@@ -66,6 +76,17 @@ Supported options:
 
 Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive.
 
+Use `search-projects` when the user refers to a project by description, folder, note text, tag, status, or partial title. This is preferred over reading all projects and filtering locally.
+
+Supported project search options:
+
+- `query` or `q`: text to find.
+- `scope`: `remaining`, `active`, `on-hold`, `completed`, `dropped`, or `all`.
+- `limit`: maximum returned project objects; the response still includes total `count`.
+- `detail`: `true` to return detailed project objects.
+
+Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
+
 ## Write Operations
 
 Use `create` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
@@ -84,6 +105,26 @@ Use `update` for task changes. Supported fields:
 
 Use `delete` only when the user's intent is explicit or after confirmation. Deletion returns the deleted task's summary JSON.
 
+Use `create-project` for new top-level projects unless the user names a folder. If `folder=<folder name or id>` is provided, the project is created in that folder.
+
+Use `update-project` for project changes. Supported fields:
+
+- `name` or `title`
+- `note`
+- `flagged`
+- `completed`
+- `dropped`
+- `status`: `active`, `on hold`, `done`, or `dropped`
+- `due`
+- `defer`
+- `tag`
+- `folder`
+- `sequential`
+- `completedByChildren`
+- `estimatedMinutes` or `estimated`
+
+Use `delete-project` only when the user's intent is explicit or after confirmation. Deletion returns the deleted project's detailed JSON.
+
 Date values are parsed by macOS AppleScript in the current locale. If date parsing fails, ask the user for a clearer date/time.
 
 ## Response Style
@@ -93,6 +134,9 @@ Prefer concise updates such as:
 - `Reading your OmniFocus inbox.`
 - `Reading flagged tasks from OmniFocus.`
 - `Reading OmniFocus projects.`
+- `Searching OmniFocus projects.`
+- `Updating the OmniFocus project.`
+- `Reading the OmniFocus project details.`
 - `Searching OmniFocus tasks.`
 - `Creating the OmniFocus task.`
 - `Updating the OmniFocus task.`
