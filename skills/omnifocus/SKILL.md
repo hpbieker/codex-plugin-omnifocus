@@ -13,7 +13,11 @@ Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus
 - OmniFocus automation access must be allowed in macOS Privacy & Security settings if prompted.
 - Use the helper script at `../../scripts/read_omnifocus_tasks.applescript` through `osascript`.
 - Resolve that helper path relative to this skill directory. In an installed plugin cache, the script lives at the plugin root under `scripts/`, not inside `skills/omnifocus/`.
-- OmniFocus AppleScript access requires local macOS Automation access. When running through Codex `exec_command`, request escalated execution for the `osascript` command immediately instead of first trying the sandboxed command.
+- OmniFocus AppleScript access requires local macOS Automation access.
+
+## Execution Contract
+
+Always run `osascript` through Codex `exec_command` with `sandbox_permissions=require_escalated` on the first attempt. All helper modes (`inbox`, `available`, `remaining`, `flagged`, `due`, `deferred`, `completed`, `projects`, `search`, `detail`, `create`, `update`, `delete`) require macOS Automation access and must not be sandbox-probed first.
 
 ## Workflow
 
