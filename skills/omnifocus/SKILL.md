@@ -1,11 +1,11 @@
 ---
 name: omnifocus
-description: Search, read, create, update, and delete OmniFocus tasks, projects, folders, and tags, including inbox, flagged, due, deferred, completed, available, remaining, project/folder/tag lists, search, and details.
+description: Search, read, create, update, and delete OmniFocus 4 tasks, projects, folders, and tags, including inbox, flagged, due, deferred, completed, available, remaining, project/folder/tag lists, search, and details.
 ---
 
-# OmniFocus
+# OmniFocus 4
 
-Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus, inspect OmniFocus projects, folders, or tags, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task, project, folder, or tag, update a task, project, folder, or tag, delete a task, project, folder, or tag, or inspect detailed metadata for a specific task, project, folder, or tag.
+Use this skill when the user asks to search OmniFocus 4, read tasks from OmniFocus 4, inspect OmniFocus projects, folders, or tags, summarize task lists, find due or flagged actions, extract task data from OmniFocus, create a task, project, folder, or tag, update a task, project, folder, or tag, delete a task, project, folder, or tag, or inspect detailed metadata for a specific task, project, folder, or tag.
 
 ## Requirements
 
