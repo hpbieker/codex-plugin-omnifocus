@@ -730,14 +730,6 @@ on warnFullTextSearch(searchMode, searchQuery, searchScope)
 	log warningText
 end warnFullTextSearch
 
-on tasksToJSON(taskItems)
-	set jsonItems to {}
-	repeat with taskItem in taskItems
-		set end of jsonItems to my taskToJSON(taskItem)
-	end repeat
-	return "[" & my joinText(jsonItems, ",") & "]"
-end tasksToJSON
-
 on bulkTaskListToJSON(requestedMode, optionsMap)
 	set resultLimit to my listLimitValue(optionsMap, 50)
 	set includeExactCount to false
