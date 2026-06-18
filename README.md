@@ -57,23 +57,33 @@ You can also check all remaining tasks:
 osascript scripts/read_omnifocus_tasks.applescript tasks-remaining
 ```
 
+## Performance Benchmark
+
+Run the repeatable benchmark from the repository root:
+
+```sh
+python3 -B scripts/benchmark_omnifocus.py --output reports/omnifocus-benchmark.json
+```
+
+The benchmark creates temporary `CodexPerf-*` folders, tags, projects, and tasks, exercises the supported helper modes, deletes the temporary objects, and prints a JSON report. The report includes total time, median time, the slowest calls, task-list timings, and per-call results. OmniFocus Automation access is required.
+
 ## Available Modes
 
 Task modes:
 
 - `create-task`: create a new task
 - `delete-task <task-id>`: delete an existing task
-- `search-tasks`: full-text search tasks; warning: emits `[omnifocus-warning] full-text-search ...`
+- `search-tasks [limit=50|all]`: full-text search task summaries; warning: emits `[omnifocus-warning] full-text-search ...`
 - `task-detail <task-id>`: detailed metadata for one task
-- `tasks-available [limit=10|all]`: incomplete and unblocked tasks by effective status
-- `tasks-by-tag <tag-id>`: list tasks with one tag by id
-- `tasks-by-tag-name <tag-name>`: list tasks with one tag by exact name
-- `tasks-completed [limit=10|all]`: completed tasks by effective status
-- `tasks-deferred [limit=10|all]`: incomplete tasks with a defer date by effective status
-- `tasks-due [limit=10|all]`: incomplete tasks with a due date by effective status
-- `tasks-flagged [limit=10|all]`: incomplete flagged tasks by effective status
-- `tasks-inbox [limit=10|all]`: incomplete inbox tasks
-- `tasks-remaining [limit=10|all]`: incomplete, not dropped tasks by effective status, excluding project root tasks
+- `tasks-available [limit=50|all]`: incomplete and unblocked tasks by effective status
+- `tasks-by-tag <tag-id> [limit=50|all]`: list tasks with one tag by id
+- `tasks-by-tag-name <tag-name> [limit=50|all]`: list tasks with one tag by exact name
+- `tasks-completed [limit=50|all]`: completed tasks by effective status
+- `tasks-deferred [limit=50|all]`: incomplete tasks with a defer date by effective status
+- `tasks-due [limit=50|all]`: incomplete tasks with a due date by effective status
+- `tasks-flagged [limit=50|all]`: incomplete flagged tasks by effective status
+- `tasks-inbox [limit=50|all]`: incomplete inbox tasks
+- `tasks-remaining [limit=50|all]`: incomplete, not dropped tasks by effective status, excluding project root tasks
 - `update-task <task-id>`: update an existing task
 
 Project modes:
@@ -83,7 +93,7 @@ Project modes:
 - `project-detail <project-id>`: detailed metadata for one project by id
 - `project-detail-by-name <project-name>`: detailed metadata for one project by exact name
 - `projects [scope=remaining]`: projects; supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`
-- `search-projects`: full-text search projects; warning: emits `[omnifocus-warning] full-text-search ...`
+- `search-projects [limit=50|all]`: full-text search project summaries; warning: emits `[omnifocus-warning] full-text-search ...`
 - `update-project <project-id>`: update an existing project by id
 
 Folder modes:
@@ -93,14 +103,14 @@ Folder modes:
 - `folder-detail <folder-id>`: detailed metadata for one folder by id
 - `folder-detail-by-name <folder-name>`: detailed metadata for one folder by exact name
 - `folders`: list folders
-- `search-folders`: full-text search folders; warning: emits `[omnifocus-warning] full-text-search ...`
+- `search-folders [limit=50|all]`: full-text search folder summaries; warning: emits `[omnifocus-warning] full-text-search ...`
 - `update-folder <folder-id>`: update or move an existing folder by id
 
 Tag modes:
 
 - `create-tag`: create a new tag
 - `delete-tag <tag-id>`: delete an existing tag by id
-- `search-tags`: full-text search tags; warning: emits `[omnifocus-warning] full-text-search ...`
+- `search-tags [limit=50|all]`: full-text search tag summaries; warning: emits `[omnifocus-warning] full-text-search ...`
 - `tag-detail <tag-id>`: detailed metadata for one tag by id
 - `tag-detail-by-name <tag-name>`: detailed metadata for one tag by exact name
 - `tags`: list tags
@@ -127,7 +137,7 @@ Once the plugin is installed, ask Codex naturally:
 
 For broad task and project searches, the skill uses `remaining` by default. Use `all`, `completed`, or `dropped` only when the user explicitly asks for that wider set. Direct detail lookups by id do not need scope filtering.
 
-Task list modes default to `limit=10` and return `{mode,count,limit,tasks}`. Without `detail=true`, task list modes use one bulk OmniFocus `properties of every ...` read for the selected mode, then build JSON locally from those records. Use a larger `limit` or `limit=all` only for an explicit broader or complete dump. Use `detail=true` only when project, folder, tag, and note fields are needed, because that requires per-task detail reads and can be slow. Remaining-style list modes use OmniFocus effective status, so tasks inside completed or dropped containers are not returned as remaining. Task modes exclude OmniFocus project root tasks; use project modes for projects.
+Task list, search, and tag task modes accept numeric limits or `limit=all`. Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,tasks}`. Normal task list modes do not compute an exact count; they fetch up to `limit + 1` matching tasks, return `count:null`, and set `hasMore:true` when there are more results. Use `count=true` only when an exact total is needed, because that requires reading the full matching set. Use `limit=all` only for an explicit complete dump. Collection commands return summary fields only; use the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) to fetch full metadata for individual items. Remaining-style list modes use OmniFocus effective status, so tasks inside completed or dropped containers are not returned as remaining. Task modes exclude OmniFocus project root tasks; use project modes for projects.
 
 For ambiguous updates or deletes, Codex should first identify the matching task or project and ask for confirmation.
 
@@ -160,7 +170,7 @@ osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" 
 Search projects:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search-projects query="Energy" detail=true
+osascript scripts/read_omnifocus_tasks.applescript search-projects query="Energy"
 ```
 
 Read detailed project metadata:
@@ -245,10 +255,10 @@ osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" 
 osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" scope=all
 ```
 
-Return detailed task objects from search:
+Fetch details for one task from a search result:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" detail=true
+osascript scripts/read_omnifocus_tasks.applescript task-detail task-id
 ```
 
 Update a task:
@@ -323,7 +333,7 @@ Supported tag create/update fields:
 
 Date values are parsed by macOS AppleScript using the current locale.
 
-Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive. General searches default to remaining tasks; use `scope=all` or `scope=completed` only when the user explicitly asks for all or completed tasks. Use `tasks-by-tag-name` or `tasks-by-tag` instead of `search-tasks` when the intent is specifically to list tasks with a tag.
+Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive. General searches default to remaining tasks; use `scope=all` or `scope=completed` only when the user explicitly asks for all or completed tasks. Search and tag task modes accept `limit=all`. Use `tasks-by-tag-name` or `tasks-by-tag` instead of `search-tasks` when the intent is specifically to list tasks with a tag.
 
 Full-text search modes write `[omnifocus-warning] full-text-search ...` to stderr so callers can spot broad searches and switch to narrower commands when possible.
 
@@ -338,14 +348,12 @@ Supported search options:
 - `query` or `q`
 - `scope`: `remaining`, `available`, `inbox`, `flagged`, `due`, `deferred`, `completed`, or `all`
 - `limit`
-- `detail`
 
 Supported project search options:
 
 - `query` or `q`
 - `scope`: `remaining`, `active`, `on-hold`, `completed`, `dropped`, or `all`
 - `limit`
-- `detail`
 
 Supported folder and tag search options:
 

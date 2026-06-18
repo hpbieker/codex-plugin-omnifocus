@@ -1,6 +1,6 @@
 {
   "name": "omnifocus",
-  "version": "0.1.0+codex.20260609165638",
+  "version": "0.1.0+codex.20260618104100",
   "description": "Read and manage OmniFocus tasks via AppleScript.",
   "author": {
     "name": "Hans Petter Bieker"

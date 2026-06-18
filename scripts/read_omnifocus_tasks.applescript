@@ -139,10 +139,6 @@ on run argv
 				return "{\"ok\":true,\"operation\":\"deleted\",\"task\":" & deletedTaskJSON & "}"
 			else
 				set optionsMap to my parseOptions(argv, 2)
-				if my hasOption(optionsMap, "detail") and my boolValue(my optionValue(optionsMap, "detail")) then
-					set taskItems to my taskItemsForListMode(requestedMode)
-					return my taskListToJSON(requestedMode, taskItems, optionsMap)
-				end if
 				return my bulkTaskListToJSON(requestedMode, optionsMap)
 			end if
 		end tell
@@ -499,12 +495,7 @@ on searchTasksToJSON(optionsMap)
 	if searchScope is "" then set searchScope to "remaining"
 	my warnFullTextSearch("search-tasks", searchQuery, searchScope)
 	
-	set includeDetails to false
-	if my hasOption(optionsMap, "detail") then set includeDetails to my boolValue(my optionValue(optionsMap, "detail"))
-	
-	set resultLimit to 50
-	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
-	if resultLimit < 1 then set resultLimit to 1
+	set resultLimit to my listLimitValue(optionsMap, 50)
 	
 	set taskItems to my taskCandidatesForSearch(searchScope, searchQuery)
 	
@@ -512,16 +503,12 @@ on searchTasksToJSON(optionsMap)
 	set matchedCount to 0
 	repeat with taskItem in taskItems
 		set matchedCount to matchedCount + 1
-		if matchedCount ≤ resultLimit then
-			if includeDetails then
-				set end of jsonItems to my detailTaskToJSON(taskItem)
-			else
-				set end of jsonItems to my taskToJSON(taskItem)
-			end if
+		if resultLimit is -1 or matchedCount ≤ resultLimit then
+			set end of jsonItems to my taskToJSON(taskItem)
 		end if
 	end repeat
 	
-	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
 end searchTasksToJSON
 
 on taskCandidatesForSearch(searchScope, searchQuery)
@@ -626,12 +613,7 @@ on searchProjectsToJSON(optionsMap)
 	if searchScope is "" then set searchScope to "remaining"
 	my warnFullTextSearch("search-projects", searchQuery, searchScope)
 	
-	set includeDetails to false
-	if my hasOption(optionsMap, "detail") then set includeDetails to my boolValue(my optionValue(optionsMap, "detail"))
-	
-	set resultLimit to 50
-	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
-	if resultLimit < 1 then set resultLimit to 1
+	set resultLimit to my listLimitValue(optionsMap, 50)
 	
 	set projectItems to my projectItemsForSearchScope(searchScope)
 	
@@ -640,17 +622,13 @@ on searchProjectsToJSON(optionsMap)
 	repeat with projectItem in projectItems
 		if my projectMatchesQuery(projectItem, searchQuery) then
 			set matchedCount to matchedCount + 1
-			if matchedCount ≤ resultLimit then
-				if includeDetails then
-					set end of jsonItems to my detailProjectToJSON(projectItem)
-				else
-					set end of jsonItems to my projectToJSON(projectItem)
-				end if
+			if resultLimit is -1 or matchedCount ≤ resultLimit then
+				set end of jsonItems to my projectToJSON(projectItem)
 			end if
 		end if
 	end repeat
 	
-	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"projects\":[" & my joinText(jsonItems, ",") & "]}"
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"projects\":[" & my joinText(jsonItems, ",") & "]}"
 end searchProjectsToJSON
 
 on projectItemsForSearchScope(searchScope)
@@ -673,9 +651,7 @@ on searchFoldersToJSON(optionsMap)
 	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "name")
 	if searchQuery is "" then error "search-folders requires query=<text>."
 	
-	set resultLimit to 50
-	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
-	if resultLimit < 1 then set resultLimit to 1
+	set resultLimit to my listLimitValue(optionsMap, 50)
 	my warnFullTextSearch("search-folders", searchQuery, "")
 	
 	tell application id (omniFocusAppID as text)
@@ -689,11 +665,11 @@ on searchFoldersToJSON(optionsMap)
 	repeat with folderItem in folderItems
 		if my folderMatchesQuery(folderItem, searchQuery) then
 			set matchedCount to matchedCount + 1
-			if matchedCount ≤ resultLimit then set end of jsonItems to my detailFolderToJSON(folderItem)
+			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my folderToJSON(folderItem)
 		end if
 	end repeat
 	
-	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"folders\":[" & my joinText(jsonItems, ",") & "]}"
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"folders\":[" & my joinText(jsonItems, ",") & "]}"
 end searchFoldersToJSON
 
 on searchTagsToJSON(optionsMap)
@@ -702,9 +678,7 @@ on searchTagsToJSON(optionsMap)
 	if searchQuery is "" then set searchQuery to my optionValue(optionsMap, "name")
 	if searchQuery is "" then error "search-tags requires query=<text>."
 	
-	set resultLimit to 50
-	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
-	if resultLimit < 1 then set resultLimit to 1
+	set resultLimit to my listLimitValue(optionsMap, 50)
 	my warnFullTextSearch("search-tags", searchQuery, "")
 	
 	tell application id (omniFocusAppID as text)
@@ -718,23 +692,18 @@ on searchTagsToJSON(optionsMap)
 	repeat with tagItem in tagItems
 		if my tagMatchesQuery(tagItem, searchQuery) then
 			set matchedCount to matchedCount + 1
-			if matchedCount ≤ resultLimit then set end of jsonItems to my detailTagToJSON(tagItem)
+			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my tagToJSON(tagItem)
 		end if
 	end repeat
 	
-	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"tags\":[" & my joinText(jsonItems, ",") & "]}"
+	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tags\":[" & my joinText(jsonItems, ",") & "]}"
 end searchTagsToJSON
 
 on tagTasksToJSON(tagItem, optionsMap)
 	set searchScope to my optionValue(optionsMap, "scope")
 	if searchScope is "" then set searchScope to "remaining"
 	
-	set includeDetails to false
-	if my hasOption(optionsMap, "detail") then set includeDetails to my boolValue(my optionValue(optionsMap, "detail"))
-	
-	set resultLimit to 50
-	if my hasOption(optionsMap, "limit") then set resultLimit to my intValue(my optionValue(optionsMap, "limit"))
-	if resultLimit < 1 then set resultLimit to 1
+	set resultLimit to my listLimitValue(optionsMap, 50)
 	
 	set tagId to id of tagItem
 	set tagName to name of tagItem
@@ -745,17 +714,13 @@ on tagTasksToJSON(tagItem, optionsMap)
 	repeat with taskItem in taggedTasks
 		if my shouldIncludeTaskForSearch(taskItem, searchScope) then
 			set matchedCount to matchedCount + 1
-			if matchedCount ≤ resultLimit then
-				if includeDetails then
-					set end of jsonItems to my detailTaskToJSON(taskItem)
-				else
-					set end of jsonItems to my taskToJSON(taskItem)
-				end if
+			if resultLimit is -1 or matchedCount ≤ resultLimit then
+				set end of jsonItems to my taskToJSON(taskItem)
 			end if
 		end if
 	end repeat
 	
-	return "{\"tag\":{" & my quoteKeyValue("id", tagId) & "," & my quoteKeyValue("name", tagName) & "},\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & resultLimit & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
+	return "{\"tag\":{" & my quoteKeyValue("id", tagId) & "," & my quoteKeyValue("name", tagName) & "},\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
 end tagTasksToJSON
 
 on shouldIncludeTaskForSearch(taskItem, searchScope)
@@ -843,32 +808,15 @@ on tasksToJSON(taskItems)
 	return "[" & my joinText(jsonItems, ",") & "]"
 end tasksToJSON
 
-on taskListToJSON(requestedMode, taskItems, optionsMap)
-	set includeDetails to false
-	if my hasOption(optionsMap, "detail") then set includeDetails to my boolValue(my optionValue(optionsMap, "detail"))
-	
-	set resultLimit to my listLimitValue(optionsMap, 10)
-	set taskCount to count of taskItems
-	
-	set jsonItems to {}
-	set emittedCount to 0
-	repeat with taskItem in taskItems
-		if resultLimit is not -1 and emittedCount ≥ resultLimit then exit repeat
-		if includeDetails then
-			set end of jsonItems to my detailTaskToJSON(taskItem)
-		else
-			set end of jsonItems to my listTaskToJSON(taskItem)
-		end if
-		set emittedCount to emittedCount + 1
-	end repeat
-	
-	set limitJSON to resultLimit as text
-	if resultLimit is -1 then set limitJSON to "null"
-	return "{\"mode\":\"" & my escapeJSON(requestedMode) & "\",\"count\":" & taskCount & ",\"limit\":" & limitJSON & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
-end taskListToJSON
-
 on bulkTaskListToJSON(requestedMode, optionsMap)
-	set resultLimit to my listLimitValue(optionsMap, 10)
+	set resultLimit to my listLimitValue(optionsMap, 50)
+	set includeExactCount to false
+	if my hasOption(optionsMap, "count") then set includeExactCount to my boolValue(my optionValue(optionsMap, "count"))
+	if includeExactCount or resultLimit is -1 then return my exactBulkTaskListToJSON(requestedMode, resultLimit)
+	return my limitedBulkTaskListToJSON(requestedMode, resultLimit)
+end bulkTaskListToJSON
+
+on exactBulkTaskListToJSON(requestedMode, resultLimit)
 	
 	tell application id (omniFocusAppID as text)
 		tell front document
@@ -892,13 +840,63 @@ on bulkTaskListToJSON(requestedMode, optionsMap)
 		end tell
 	end tell
 	
-	return my bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties)
-end bulkTaskListToJSON
+	return my bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties, true)
+end exactBulkTaskListToJSON
 
-on bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties)
+on limitedBulkTaskListToJSON(requestedMode, resultLimit)
+	set fetchLimit to resultLimit + 1
+	
+	tell application id (omniFocusAppID as text)
+		tell front document
+			try
+				if requestedMode is "tasks-inbox" then
+					set taskProperties to properties of «class FCit» 1 thru fetchLimit where completed is false
+				else if requestedMode is "tasks-available" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and blocked is false
+				else if requestedMode is "tasks-remaining" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false
+				else if requestedMode is "tasks-flagged" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and flagged is true
+				else if requestedMode is "tasks-due" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value
+				else if requestedMode is "tasks-deferred" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value
+				else if requestedMode is "tasks-completed" then
+					set taskProperties to properties of «class FCft» 1 thru fetchLimit where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is true
+				else
+					error "Unknown task list mode '" & requestedMode & "'."
+				end if
+			on error
+				if requestedMode is "tasks-inbox" then
+					set taskProperties to properties of every «class FCit» where completed is false
+				else if requestedMode is "tasks-available" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and blocked is false
+				else if requestedMode is "tasks-remaining" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false
+				else if requestedMode is "tasks-flagged" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and flagged is true
+				else if requestedMode is "tasks-due" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value
+				else if requestedMode is "tasks-deferred" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value
+				else if requestedMode is "tasks-completed" then
+					set taskProperties to properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is true
+				else
+					error "Unknown task list mode '" & requestedMode & "'."
+				end if
+			end try
+		end tell
+	end tell
+	
+	return my bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties, false)
+end limitedBulkTaskListToJSON
+
+on bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties, includeExactCount)
 	set taskCount to count of taskProperties
 	set emitCount to taskCount
 	if resultLimit is not -1 and emitCount > resultLimit then set emitCount to resultLimit
+	set hasMore to false
+	if resultLimit is not -1 and taskCount > resultLimit then set hasMore to true
 	
 	set jsonItems to {}
 	repeat with taskIndex from 1 to emitCount
@@ -906,9 +904,9 @@ on bulkTaskPropertiesToJSON(requestedMode, resultLimit, taskProperties)
 		set end of jsonItems to my taskPropertiesToJSON(taskPropertiesItem)
 	end repeat
 	
-	set limitJSON to resultLimit as text
-	if resultLimit is -1 then set limitJSON to "null"
-	return "{\"mode\":\"" & my escapeJSON(requestedMode) & "\",\"count\":" & taskCount & ",\"limit\":" & limitJSON & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
+	set taskCountJSON to "null"
+	if includeExactCount then set taskCountJSON to taskCount as text
+	return "{\"mode\":\"" & my escapeJSON(requestedMode) & "\",\"count\":" & taskCountJSON & ",\"hasMore\":" & my boolJSONValue(hasMore) & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
 end bulkTaskPropertiesToJSON
 
 on taskPropertiesToJSON(taskPropertiesItem)
@@ -976,21 +974,6 @@ on tagsToJSON(tagItems)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end tagsToJSON
-
-on taskItemsForListMode(requestedMode)
-	tell application id (omniFocusAppID as text)
-		tell front document
-			if requestedMode is "tasks-inbox" then return every «class FCit» where completed is false
-			if requestedMode is "tasks-available" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and blocked is false
-			if requestedMode is "tasks-remaining" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false
-			if requestedMode is "tasks-flagged" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and flagged is true
-			if requestedMode is "tasks-due" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value
-			if requestedMode is "tasks-deferred" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value
-			if requestedMode is "tasks-completed" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is true
-		end tell
-	end tell
-	error "Unknown task list mode '" & requestedMode & "'."
-end taskItemsForListMode
 
 on isProjectRootTask(taskItem)
 	tell application id (omniFocusAppID as text)
@@ -1407,6 +1390,11 @@ on listLimitValue(optionsMap, defaultLimit)
 	return parsedLimit
 end listLimitValue
 
+on limitJSONValue(resultLimit)
+	if resultLimit is -1 then return "null"
+	return resultLimit as text
+end limitJSONValue
+
 on optionalDateValue(rawText)
 	if rawText is "" then return missing value
 	if rawText is "none" then return missing value
@@ -1429,6 +1417,11 @@ on boolKeyValue(keyName, rawValue)
 		return "\"" & keyName & "\":false"
 	end if
 end boolKeyValue
+
+on boolJSONValue(rawValue)
+	if rawValue then return "true"
+	return "false"
+end boolJSONValue
 
 on safeValue(rawValue)
 	if rawValue is missing value then return ""
