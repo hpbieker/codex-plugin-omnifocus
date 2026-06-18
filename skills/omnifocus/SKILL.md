@@ -112,7 +112,7 @@ osascript ../../scripts/read_omnifocus_tasks.applescript tags
 
 ## Search
 
-Use `search-tasks` when the user refers to a task by description, person, project, note text, tag, or partial title. This is preferred over reading all `remaining` tasks and filtering locally.
+Use `search-tasks` when the user refers to a task by description, person, note text, id, or partial title. This is preferred over reading all `remaining` tasks and filtering locally.
 
 Default to `scope=remaining` for general searches. Use `scope=all` or `scope=completed` only when the user explicitly asks for all tasks, completed tasks, history, or an old/closed item. This scope rule does not apply to direct lookup by task id with `task-detail`.
 
@@ -124,9 +124,9 @@ Supported options:
 - `scope`: `remaining`, `available`, `inbox`, `flagged`, `due`, `deferred`, `completed`, or `all`.
 - `limit`: maximum returned task objects, or `all`; the response still includes total `count`.
 
-Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive.
+Search matches task id, name/title, and note. Matching is case-insensitive. Use `tasks-by-tag-name` or `tasks-by-tag` for tag relationships.
 
-Use `search-projects` when the user refers to a project by description, folder, note text, tag, status, or partial title. This is preferred over reading all projects and filtering locally.
+Use `search-projects` when the user refers to a project by description, note text, status, id, or partial title. This is preferred over reading all projects and filtering locally.
 
 Default to `scope=remaining` for project searches. Use `scope=all`, `scope=completed`, or `scope=dropped` only when the user explicitly asks for that wider set.
 
@@ -136,9 +136,9 @@ Supported project search options:
 - `scope`: `remaining`, `active`, `on-hold`, `completed`, `dropped`, or `all`.
 - `limit`: maximum returned project objects, or `all`; the response still includes total `count`.
 
-Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
+Project search matches project id, name/title, note, and status. Matching is case-insensitive.
 
-Use `search-folders` when the user refers to a folder by name, parent, or note text. Use `search-tags` when the user refers to a tag by name, parent, or note text. Both are full-text search modes and emit `[omnifocus-warning] full-text-search ...` to stderr. Both support `limit=all`.
+Use `search-folders` when the user refers to a folder by id, name, or note text. Use `search-tags` when the user refers to a tag by id, name, or note text. Both are full-text search modes and emit `[omnifocus-warning] full-text-search ...` to stderr. Both support `limit=all`.
 
 Use `tasks-by-tag-name` when the user asks for tasks with a specific tag or says tasks are "tagged", "marked", or "merket" with a tag by name. Use `tasks-by-tag` when the tag id is already known. Prefer these over `search-tasks query=<tag name>` because they go directly through the tag relationship instead of doing a broader text search.
 

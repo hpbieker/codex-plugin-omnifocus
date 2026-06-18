@@ -15,11 +15,11 @@ on run argv
 		tell front document
 			if requestedMode is "projects" then
 				set optionsMap to my parseOptions(argv, 2)
-				set projectItems to every «class FCfx»
-				return my projectsToJSON(projectItems, optionsMap)
+				set projectProperties to properties of every «class FCfx»
+				return my projectsToJSON(projectProperties, optionsMap)
 			else if requestedMode is "folders" then
-				set folderItems to every «class FCff»
-				return my foldersToJSON(folderItems)
+				set folderProperties to properties of every «class FCff»
+				return my foldersToJSON(folderProperties)
 			else if requestedMode is "search-folders" then
 				set optionsMap to my parseOptions(argv, 2)
 				return my searchFoldersToJSON(optionsMap)
@@ -48,8 +48,8 @@ on run argv
 				delete folderItem
 				return "{\"ok\":true,\"operation\":\"deleted\",\"folder\":" & deletedFolderJSON & "}"
 			else if requestedMode is "tags" then
-				set tagItems to every «class FCfc»
-				return my tagsToJSON(tagItems)
+				set tagProperties to properties of every «class FCfc»
+				return my tagsToJSON(tagProperties)
 			else if requestedMode is "search-tags" then
 				set optionsMap to my parseOptions(argv, 2)
 				return my searchTagsToJSON(optionsMap)
@@ -497,111 +497,35 @@ on searchTasksToJSON(optionsMap)
 	
 	set resultLimit to my listLimitValue(optionsMap, 50)
 	
-	set taskItems to my taskCandidatesForSearch(searchScope, searchQuery)
+	set taskProperties to my taskPropertiesForSearch(searchScope, searchQuery)
 	
 	set jsonItems to {}
-	set matchedCount to 0
-	repeat with taskItem in taskItems
-		set matchedCount to matchedCount + 1
-		if resultLimit is -1 or matchedCount ≤ resultLimit then
-			set end of jsonItems to my taskToJSON(taskItem)
-		end if
+	set matchedCount to count of taskProperties
+	set emitCount to matchedCount
+	if resultLimit is not -1 and emitCount > resultLimit then set emitCount to resultLimit
+	repeat with taskIndex from 1 to emitCount
+		set taskPropertiesItem to item taskIndex of taskProperties
+		set end of jsonItems to my taskPropertiesToJSON(taskPropertiesItem)
 	end repeat
 	
 	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
 end searchTasksToJSON
 
-on taskCandidatesForSearch(searchScope, searchQuery)
-	set candidateItems to {}
-	set candidateItems to my addUniqueTasks(candidateItems, my directTaskCandidatesForSearch(searchScope, searchQuery))
-	set candidateItems to my addUniqueTasks(candidateItems, my projectTaskCandidatesForSearch(searchScope, searchQuery))
-	set candidateItems to my addUniqueTasks(candidateItems, my folderTaskCandidatesForSearch(searchScope, searchQuery))
-	set candidateItems to my addUniqueTasks(candidateItems, my tagTaskCandidatesForSearch(searchScope, searchQuery))
-	return candidateItems
-end taskCandidatesForSearch
-
-on directTaskCandidatesForSearch(searchScope, searchQuery)
+on taskPropertiesForSearch(searchScope, searchQuery)
 	tell application id (omniFocusAppID as text)
 		tell front document
-			if searchScope is "all" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "inbox" then return every «class FCit» where name contains searchQuery or note contains searchQuery or id contains searchQuery
-			if searchScope is "completed" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is true and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "remaining" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "available" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and blocked is false and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "flagged" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and flagged is true and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "due" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
-			if searchScope is "deferred" then return every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "all" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "inbox" then return properties of every «class FCit» where name contains searchQuery or note contains searchQuery or id contains searchQuery
+			if searchScope is "completed" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is true and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "remaining" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "available" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and blocked is false and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "flagged" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and flagged is true and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "due" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
+			if searchScope is "deferred" then return properties of every «class FCft» where («property FCPr» is missing value or id is not id of «property FCPr») and «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value and (name contains searchQuery or note contains searchQuery or id contains searchQuery)
 		end tell
 	end tell
 	error "Unknown task search scope '" & searchScope & "'. Use remaining, available, inbox, flagged, due, deferred, completed, or all."
-end directTaskCandidatesForSearch
-
-on projectTaskCandidatesForSearch(searchScope, searchQuery)
-	set candidateItems to {}
-	tell application id (omniFocusAppID as text)
-		tell front document
-			set projectItems to every «class FCfx» where name contains searchQuery
-			repeat with projectItem in projectItems
-				set projectTasks to every «class FCft» of projectItem
-				repeat with taskItem in projectTasks
-					if my shouldIncludeTaskForSearch(taskItem, searchScope) then set candidateItems to my addUniqueTask(candidateItems, taskItem)
-				end repeat
-			end repeat
-		end tell
-	end tell
-	return candidateItems
-end projectTaskCandidatesForSearch
-
-on folderTaskCandidatesForSearch(searchScope, searchQuery)
-	set candidateItems to {}
-	tell application id (omniFocusAppID as text)
-		tell front document
-			set folderItems to every «class FCff» where name contains searchQuery
-			repeat with folderItem in folderItems
-				set projectItems to every «class FCfx» of folderItem
-				repeat with projectItem in projectItems
-					set projectTasks to every «class FCft» of projectItem
-					repeat with taskItem in projectTasks
-						if my shouldIncludeTaskForSearch(taskItem, searchScope) then set candidateItems to my addUniqueTask(candidateItems, taskItem)
-					end repeat
-				end repeat
-			end repeat
-		end tell
-	end tell
-	return candidateItems
-end folderTaskCandidatesForSearch
-
-on tagTaskCandidatesForSearch(searchScope, searchQuery)
-	set candidateItems to {}
-	tell application id (omniFocusAppID as text)
-		tell front document
-			set tagItems to every «class FCfc» where name contains searchQuery
-			repeat with tagItem in tagItems
-				set taggedTasks to tasks of tagItem
-				repeat with taskItem in taggedTasks
-					if my shouldIncludeTaskForSearch(taskItem, searchScope) then set candidateItems to my addUniqueTask(candidateItems, taskItem)
-				end repeat
-			end repeat
-		end tell
-	end tell
-	return candidateItems
-end tagTaskCandidatesForSearch
-
-on addUniqueTasks(candidateItems, newItems)
-	repeat with taskItem in newItems
-		set candidateItems to my addUniqueTask(candidateItems, taskItem)
-	end repeat
-	return candidateItems
-end addUniqueTasks
-
-on addUniqueTask(candidateItems, taskItem)
-	set taskID to id of taskItem
-	repeat with candidateItem in candidateItems
-		if id of candidateItem is taskID then return candidateItems
-	end repeat
-	set end of candidateItems to taskItem
-	return candidateItems
-end addUniqueTask
+end taskPropertiesForSearch
 
 on searchProjectsToJSON(optionsMap)
 	set searchQuery to my optionValue(optionsMap, "query")
@@ -615,15 +539,15 @@ on searchProjectsToJSON(optionsMap)
 	
 	set resultLimit to my listLimitValue(optionsMap, 50)
 	
-	set projectItems to my projectItemsForSearchScope(searchScope)
+	set projectPropertiesItems to my projectPropertiesForSearchScope(searchScope)
 	
 	set jsonItems to {}
 	set matchedCount to 0
-	repeat with projectItem in projectItems
-		if my projectMatchesQuery(projectItem, searchQuery) then
+	repeat with projectPropertiesItem in projectPropertiesItems
+		if my projectPropertiesMatchesQuery(projectPropertiesItem, searchQuery) then
 			set matchedCount to matchedCount + 1
 			if resultLimit is -1 or matchedCount ≤ resultLimit then
-				set end of jsonItems to my projectToJSON(projectItem)
+				set end of jsonItems to my projectPropertiesToJSON(projectPropertiesItem)
 			end if
 		end if
 	end repeat
@@ -631,19 +555,19 @@ on searchProjectsToJSON(optionsMap)
 	return "{\"query\":\"" & my escapeJSON(searchQuery) & "\",\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"projects\":[" & my joinText(jsonItems, ",") & "]}"
 end searchProjectsToJSON
 
-on projectItemsForSearchScope(searchScope)
+on projectPropertiesForSearchScope(searchScope)
 	tell application id (omniFocusAppID as text)
 		tell front document
-			if searchScope is "all" then return every «class FCfx»
-			if searchScope is "completed" or searchScope is "done" then return every «class FCfx» where completed is true
-			if searchScope is "dropped" then return every «class FCfx» where «property FC-d» is true
-			if searchScope is "on-hold" or searchScope is "on hold" then return every «class FCfx» where status is on hold status
-			if searchScope is "active" then return every «class FCfx» where status is active status
-			if searchScope is "remaining" then return every «class FCfx» where completed is false
+			if searchScope is "all" then return properties of every «class FCfx»
+			if searchScope is "completed" or searchScope is "done" then return properties of every «class FCfx» where completed is true
+			if searchScope is "dropped" then return properties of every «class FCfx» where «property FC-d» is true
+			if searchScope is "on-hold" or searchScope is "on hold" then return properties of every «class FCfx» where status is on hold status
+			if searchScope is "active" then return properties of every «class FCfx» where status is active status
+			if searchScope is "remaining" then return properties of every «class FCfx» where completed is false
 		end tell
 	end tell
 	error "Unknown project search scope '" & searchScope & "'. Use remaining, active, on-hold, completed, dropped, or all."
-end projectItemsForSearchScope
+end projectPropertiesForSearchScope
 
 on searchFoldersToJSON(optionsMap)
 	set searchQuery to my optionValue(optionsMap, "query")
@@ -656,16 +580,16 @@ on searchFoldersToJSON(optionsMap)
 	
 	tell application id (omniFocusAppID as text)
 		tell front document
-			set folderItems to every «class FCff»
+			set folderPropertiesItems to properties of every «class FCff»
 		end tell
 	end tell
 	
 	set jsonItems to {}
 	set matchedCount to 0
-	repeat with folderItem in folderItems
-		if my folderMatchesQuery(folderItem, searchQuery) then
+	repeat with folderPropertiesItem in folderPropertiesItems
+		if my folderPropertiesMatchesQuery(folderPropertiesItem, searchQuery) then
 			set matchedCount to matchedCount + 1
-			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my folderToJSON(folderItem)
+			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my folderPropertiesToJSON(folderPropertiesItem)
 		end if
 	end repeat
 	
@@ -683,16 +607,16 @@ on searchTagsToJSON(optionsMap)
 	
 	tell application id (omniFocusAppID as text)
 		tell front document
-			set tagItems to every «class FCfc»
+			set tagPropertiesItems to properties of every «class FCfc»
 		end tell
 	end tell
 	
 	set jsonItems to {}
 	set matchedCount to 0
-	repeat with tagItem in tagItems
-		if my tagMatchesQuery(tagItem, searchQuery) then
+	repeat with tagPropertiesItem in tagPropertiesItems
+		if my tagPropertiesMatchesQuery(tagPropertiesItem, searchQuery) then
 			set matchedCount to matchedCount + 1
-			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my tagToJSON(tagItem)
+			if resultLimit is -1 or matchedCount ≤ resultLimit then set end of jsonItems to my tagPropertiesToJSON(tagPropertiesItem)
 		end if
 	end repeat
 	
@@ -704,87 +628,93 @@ on tagTasksToJSON(tagItem, optionsMap)
 	if searchScope is "" then set searchScope to "remaining"
 	
 	set resultLimit to my listLimitValue(optionsMap, 50)
+	set includeExactCount to false
+	if my hasOption(optionsMap, "count") then set includeExactCount to my boolValue(my optionValue(optionsMap, "count"))
 	
 	set tagId to id of tagItem
 	set tagName to name of tagItem
-	set taggedTasks to tasks of tagItem
 	
-	set jsonItems to {}
-	set matchedCount to 0
-	repeat with taskItem in taggedTasks
-		if my shouldIncludeTaskForSearch(taskItem, searchScope) then
-			set matchedCount to matchedCount + 1
-			if resultLimit is -1 or matchedCount ≤ resultLimit then
-				set end of jsonItems to my taskToJSON(taskItem)
-			end if
-		end if
-	end repeat
+	if includeExactCount or resultLimit is -1 then
+		set taskProperties to my exactTagTaskProperties(tagItem, searchScope)
+	else
+		set taskProperties to my limitedTagTaskProperties(tagItem, searchScope, resultLimit)
+	end if
 	
-	return "{\"tag\":{" & my quoteKeyValue("id", tagId) & "," & my quoteKeyValue("name", tagName) & "},\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & matchedCount & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
+	return my tagTaskPropertiesToJSON(tagId, tagName, searchScope, resultLimit, taskProperties, includeExactCount)
 end tagTasksToJSON
 
-on shouldIncludeTaskForSearch(taskItem, searchScope)
-	if my isProjectRootTask(taskItem) then return false
-	if searchScope is "all" then return true
-	return my shouldIncludeTask(taskItem, searchScope)
-end shouldIncludeTaskForSearch
-
-on projectMatchesQuery(projectItem, searchQuery)
+on exactTagTaskProperties(tagItem, searchScope)
 	tell application id (omniFocusAppID as text)
-		tell projectItem
-			if my textContains(id, searchQuery) then return true
-			if my textContains(name, searchQuery) then return true
-			if my textContains(note, searchQuery) then return true
-			if my textContains(status as text, searchQuery) then return true
-			
-			try
-				if folder is not missing value then
-					if my textContains(name of folder, searchQuery) then return true
-				end if
-			end try
-			
-			try
-				if «property FCpt» is not missing value then
-					if my textContains(name of «property FCpt», searchQuery) then return true
-				end if
-			end try
-		end tell
+		if searchScope is "all" then return properties of every task of tagItem
+		if searchScope is "completed" then return properties of every task of tagItem where «property FCce» is true
+		if searchScope is "remaining" then return properties of every task of tagItem where «property FCce» is false and «property FC-e» is false
+		if searchScope is "available" then return properties of every task of tagItem where «property FCce» is false and «property FC-e» is false and blocked is false
+		if searchScope is "inbox" then return properties of every task of tagItem where «property FCIi» is true and completed is false
+		if searchScope is "flagged" then return properties of every task of tagItem where «property FCce» is false and «property FC-e» is false and flagged is true
+		if searchScope is "due" then return properties of every task of tagItem where «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value
+		if searchScope is "deferred" then return properties of every task of tagItem where «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value
 	end tell
-	return false
-end projectMatchesQuery
+	error "Unknown tag task scope '" & searchScope & "'. Use remaining, available, inbox, flagged, due, deferred, completed, or all."
+end exactTagTaskProperties
 
-on folderMatchesQuery(folderItem, searchQuery)
+on limitedTagTaskProperties(tagItem, searchScope, resultLimit)
+	set fetchLimit to resultLimit + 1
 	tell application id (omniFocusAppID as text)
-		tell folderItem
-			if my textContains(id, searchQuery) then return true
-			if my textContains(name, searchQuery) then return true
-			if my textContains(note, searchQuery) then return true
-			try
-				set parentItem to container
-				if parentItem is not missing value then
-					if my textContains(name of parentItem, searchQuery) then return true
-				end if
-			end try
-		end tell
+		try
+			if searchScope is "all" then return properties of task 1 thru fetchLimit of tagItem
+			if searchScope is "completed" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is true
+			if searchScope is "remaining" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is false and «property FC-e» is false
+			if searchScope is "available" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is false and «property FC-e» is false and blocked is false
+			if searchScope is "inbox" then return properties of task 1 thru fetchLimit of tagItem where «property FCIi» is true and completed is false
+			if searchScope is "flagged" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is false and «property FC-e» is false and flagged is true
+			if searchScope is "due" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is false and «property FC-e» is false and «property FCDd» is not missing value
+			if searchScope is "deferred" then return properties of task 1 thru fetchLimit of tagItem where «property FCce» is false and «property FC-e» is false and «property FCDs» is not missing value
+		on error
+			return my exactTagTaskProperties(tagItem, searchScope)
+		end try
 	end tell
-	return false
-end folderMatchesQuery
+	error "Unknown tag task scope '" & searchScope & "'. Use remaining, available, inbox, flagged, due, deferred, completed, or all."
+end limitedTagTaskProperties
 
-on tagMatchesQuery(tagItem, searchQuery)
-	tell application id (omniFocusAppID as text)
-		tell tagItem
-			if my textContains(id, searchQuery) then return true
-			if my textContains(name, searchQuery) then return true
-			if my textContains(note, searchQuery) then return true
-			try
-				if container is not missing value then
-					if my textContains(name of container, searchQuery) then return true
-				end if
-			end try
-		end tell
-	end tell
+on tagTaskPropertiesToJSON(tagId, tagName, searchScope, resultLimit, taskProperties, includeExactCount)
+	set taskCount to count of taskProperties
+	set emitCount to taskCount
+	if resultLimit is not -1 and emitCount > resultLimit then set emitCount to resultLimit
+	set hasMore to false
+	if resultLimit is not -1 and taskCount > resultLimit then set hasMore to true
+	
+	set jsonItems to {}
+	repeat with taskIndex from 1 to emitCount
+		set taskPropertiesItem to item taskIndex of taskProperties
+		set end of jsonItems to my taskPropertiesToJSON(taskPropertiesItem)
+	end repeat
+	
+	set taskCountJSON to "null"
+	if includeExactCount then set taskCountJSON to taskCount as text
+	return "{\"tag\":{" & my quoteKeyValue("id", tagId) & "," & my quoteKeyValue("name", tagName) & "},\"scope\":\"" & my escapeJSON(searchScope) & "\",\"count\":" & taskCountJSON & ",\"hasMore\":" & my boolJSONValue(hasMore) & ",\"limit\":" & my limitJSONValue(resultLimit) & ",\"tasks\":[" & my joinText(jsonItems, ",") & "]}"
+end tagTaskPropertiesToJSON
+
+on projectPropertiesMatchesQuery(projectPropertiesItem, searchQuery)
+	if my textContains(id of projectPropertiesItem, searchQuery) then return true
+	if my textContains(name of projectPropertiesItem, searchQuery) then return true
+	if my textContains(note of projectPropertiesItem, searchQuery) then return true
+	if my textContains(status of projectPropertiesItem as text, searchQuery) then return true
 	return false
-end tagMatchesQuery
+end projectPropertiesMatchesQuery
+
+on folderPropertiesMatchesQuery(folderPropertiesItem, searchQuery)
+	if my textContains(id of folderPropertiesItem, searchQuery) then return true
+	if my textContains(name of folderPropertiesItem, searchQuery) then return true
+	if my textContains(note of folderPropertiesItem, searchQuery) then return true
+	return false
+end folderPropertiesMatchesQuery
+
+on tagPropertiesMatchesQuery(tagPropertiesItem, searchQuery)
+	if my textContains(id of tagPropertiesItem, searchQuery) then return true
+	if my textContains(name of tagPropertiesItem, searchQuery) then return true
+	if my textContains(note of tagPropertiesItem, searchQuery) then return true
+	return false
+end tagPropertiesMatchesQuery
 
 on textContains(rawText, searchQuery)
 	ignoring case
@@ -922,55 +852,62 @@ on taskPropertiesToJSON(taskPropertiesItem)
 		"}"
 end taskPropertiesToJSON
 
-on listTaskToJSON(taskItem)
-	tell application id (omniFocusAppID as text)
-		tell taskItem
-			set taskId to my safeValue(id)
-			set taskName to my safeValue(name)
-			set taskFlagged to flagged
-			set taskCompleted to completed
-			set taskEffectivelyCompleted to «property FCce»
-			set taskEffectivelyDropped to «property FC-e»
-			set taskDue to my dateValue(«property FCDd»)
-			set taskDefer to my dateValue(«property FCDs»)
-		end tell
-	end tell
-	
+on projectPropertiesToJSON(projectPropertiesItem)
 	return "{" & ¬
-		my quoteKeyValue("id", taskId) & "," & ¬
-		my quoteKeyValue("name", taskName) & "," & ¬
-		my boolKeyValue("flagged", taskFlagged) & "," & ¬
-		my boolKeyValue("completed", taskCompleted) & "," & ¬
-		my boolKeyValue("effectivelyCompleted", taskEffectivelyCompleted) & "," & ¬
-		my boolKeyValue("effectivelyDropped", taskEffectivelyDropped) & "," & ¬
-		my quoteKeyValue("due", taskDue) & "," & ¬
-		my quoteKeyValue("defer", taskDefer) & ¬
+		my quoteKeyValue("id", id of projectPropertiesItem) & "," & ¬
+		my quoteKeyValue("name", name of projectPropertiesItem) & "," & ¬
+		my quoteKeyValue("status", my safeValue(status of projectPropertiesItem as text)) & "," & ¬
+		my boolKeyValue("completed", completed of projectPropertiesItem) & "," & ¬
+		my quoteKeyValue("due", my dateValue(due date of projectPropertiesItem)) & "," & ¬
+		my quoteKeyValue("defer", my dateValue(defer date of projectPropertiesItem)) & "," & ¬
+		my quoteKeyValue("note", note of projectPropertiesItem) & ¬
 		"}"
-end listTaskToJSON
+end projectPropertiesToJSON
 
-on projectsToJSON(projectItems, optionsMap)
+on folderPropertiesToJSON(folderPropertiesItem)
+	return "{" & ¬
+		my quoteKeyValue("id", id of folderPropertiesItem) & "," & ¬
+		my quoteKeyValue("name", name of folderPropertiesItem) & "," & ¬
+		my boolKeyValue("hidden", hidden of folderPropertiesItem) & "," & ¬
+		my quoteKeyValue("note", note of folderPropertiesItem) & ¬
+		"}"
+end folderPropertiesToJSON
+
+on tagPropertiesToJSON(tagPropertiesItem)
+	return "{" & ¬
+		my quoteKeyValue("id", id of tagPropertiesItem) & "," & ¬
+		my quoteKeyValue("name", name of tagPropertiesItem) & "," & ¬
+		my boolKeyValue("allowsNextAction", «property FCNA» of tagPropertiesItem) & "," & ¬
+		my boolKeyValue("hidden", hidden of tagPropertiesItem) & "," & ¬
+		"\"availableTaskCount\":" & my numberValue(«property FCa#» of tagPropertiesItem) & "," & ¬
+		"\"remainingTaskCount\":" & my numberValue(«property FCr#» of tagPropertiesItem) & "," & ¬
+		my quoteKeyValue("note", note of tagPropertiesItem) & ¬
+		"}"
+end tagPropertiesToJSON
+
+on projectsToJSON(projectPropertiesItems, optionsMap)
 	set projectScope to my optionValue(optionsMap, "scope")
 	if projectScope is "" then set projectScope to "remaining"
 	
 	set jsonItems to {}
-	repeat with projectItem in projectItems
-		if my shouldIncludeProject(projectItem, projectScope) then set end of jsonItems to my projectToJSON(projectItem)
+	repeat with projectPropertiesItem in projectPropertiesItems
+		if my shouldIncludeProjectProperties(projectPropertiesItem, projectScope) then set end of jsonItems to my projectPropertiesToJSON(projectPropertiesItem)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end projectsToJSON
 
-on foldersToJSON(folderItems)
+on foldersToJSON(folderPropertiesItems)
 	set jsonItems to {}
-	repeat with folderItem in folderItems
-		set end of jsonItems to my folderToJSON(folderItem)
+	repeat with folderPropertiesItem in folderPropertiesItems
+		set end of jsonItems to my folderPropertiesToJSON(folderPropertiesItem)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end foldersToJSON
 
-on tagsToJSON(tagItems)
+on tagsToJSON(tagPropertiesItems)
 	set jsonItems to {}
-	repeat with tagItem in tagItems
-		set end of jsonItems to my tagToJSON(tagItem)
+	repeat with tagPropertiesItem in tagPropertiesItems
+		set end of jsonItems to my tagPropertiesToJSON(tagPropertiesItem)
 	end repeat
 	return "[" & my joinText(jsonItems, ",") & "]"
 end tagsToJSON
@@ -1020,6 +957,16 @@ on shouldIncludeProject(projectItem, projectScope)
 	end tell
 	error "Unknown project scope '" & projectScope & "'. Use remaining, active, on-hold, completed, dropped, or all."
 end shouldIncludeProject
+
+on shouldIncludeProjectProperties(projectPropertiesItem, projectScope)
+	if projectScope is "all" then return true
+	if projectScope is "completed" or projectScope is "done" then return completed of projectPropertiesItem
+	if projectScope is "dropped" then return «property FC-d» of projectPropertiesItem
+	if projectScope is "on-hold" or projectScope is "on hold" then return status of projectPropertiesItem is on hold status
+	if projectScope is "active" then return status of projectPropertiesItem is active status
+	if projectScope is "remaining" then return completed of projectPropertiesItem is false
+	error "Unknown project scope '" & projectScope & "'. Use remaining, active, on-hold, completed, dropped, or all."
+end shouldIncludeProjectProperties
 
 on operationToJSON(operationName, taskItem)
 	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"task\":" & my detailTaskToJSON(taskItem) & "}"

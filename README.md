@@ -333,15 +333,15 @@ Supported tag create/update fields:
 
 Date values are parsed by macOS AppleScript using the current locale.
 
-Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive. General searches default to remaining tasks; use `scope=all` or `scope=completed` only when the user explicitly asks for all or completed tasks. Search and tag task modes accept `limit=all`. Use `tasks-by-tag-name` or `tasks-by-tag` instead of `search-tasks` when the intent is specifically to list tasks with a tag.
+Search matches task id, name/title, and note. Matching is case-insensitive. General searches default to remaining tasks; use `scope=all` or `scope=completed` only when the user explicitly asks for all or completed tasks. Search and tag task modes accept `limit=all`. Use `tasks-by-tag-name` or `tasks-by-tag` instead of `search-tasks` when the intent is specifically to list tasks with a tag.
 
 Full-text search modes write `[omnifocus-warning] full-text-search ...` to stderr so callers can spot broad searches and switch to narrower commands when possible.
 
-Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
+Project search matches project id, name/title, note, and status. Matching is case-insensitive.
 
 Project searches default to remaining projects; use `scope=all`, `scope=completed`, or `scope=dropped` only when explicitly requested.
 
-Folder search matches folder id, name/title, note, and parent. Tag search matches tag id, name/title, note, and parent. Matching is case-insensitive.
+Folder search matches folder id, name/title, and note. Tag search matches tag id, name/title, and note. Matching is case-insensitive.
 
 Supported search options:
 
