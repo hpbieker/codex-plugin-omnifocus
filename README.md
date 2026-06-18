@@ -54,41 +54,57 @@ If macOS asks for permission, allow the terminal or Codex to control OmniFocus.
 You can also check all remaining tasks:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript remaining
+osascript scripts/read_omnifocus_tasks.applescript tasks-remaining
 ```
 
 ## Available Modes
 
-- `inbox`: incomplete inbox tasks
-- `available`: incomplete and unblocked tasks
-- `remaining`: all incomplete tasks
-- `flagged`: incomplete flagged tasks
-- `due`: incomplete tasks with a due date
-- `deferred`: incomplete tasks with a defer date
-- `completed`: completed tasks
-- `projects [scope=remaining]`: projects; supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`
-- `search-projects`: search projects by text
-- `project-detail <project-id-or-name>`: detailed metadata for one project
+Task modes:
+
+- `create-task`: create a new task
+- `delete-task <task-id>`: delete an existing task
+- `search-tasks`: full-text search tasks; warning: emits `[omnifocus-warning] full-text-search ...`
+- `task-detail <task-id>`: detailed metadata for one task
+- `tasks-available [limit=10|all]`: incomplete and unblocked tasks by effective status
+- `tasks-by-tag <tag-id>`: list tasks with one tag by id
+- `tasks-by-tag-name <tag-name>`: list tasks with one tag by exact name
+- `tasks-completed [limit=10|all]`: completed tasks by effective status
+- `tasks-deferred [limit=10|all]`: incomplete tasks with a defer date by effective status
+- `tasks-due [limit=10|all]`: incomplete tasks with a due date by effective status
+- `tasks-flagged [limit=10|all]`: incomplete flagged tasks by effective status
+- `tasks-inbox [limit=10|all]`: incomplete inbox tasks
+- `tasks-remaining [limit=10|all]`: incomplete, not dropped tasks by effective status, excluding project root tasks
+- `update-task <task-id>`: update an existing task
+
+Project modes:
+
 - `create-project`: create a new project
-- `update-project <project-id-or-name>`: update an existing project
-- `delete-project <project-id-or-name>`: delete an existing project
-- `folders`: list folders
-- `search-folders`: search folders by text
-- `folder-detail <folder-id-or-name>`: detailed metadata for one folder
+- `delete-project <project-id>`: delete an existing project by id
+- `project-detail <project-id>`: detailed metadata for one project by id
+- `project-detail-by-name <project-name>`: detailed metadata for one project by exact name
+- `projects [scope=remaining]`: projects; supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`
+- `search-projects`: full-text search projects; warning: emits `[omnifocus-warning] full-text-search ...`
+- `update-project <project-id>`: update an existing project by id
+
+Folder modes:
+
 - `create-folder`: create a new folder
-- `update-folder <folder-id-or-name>`: update or move an existing folder
-- `delete-folder <folder-id-or-name>`: delete an existing folder
-- `tags`: list tags
-- `search-tags`: search tags by text
-- `tag-detail <tag-id-or-name>`: detailed metadata for one tag
+- `delete-folder <folder-id>`: delete an existing folder by id
+- `folder-detail <folder-id>`: detailed metadata for one folder by id
+- `folder-detail-by-name <folder-name>`: detailed metadata for one folder by exact name
+- `folders`: list folders
+- `search-folders`: full-text search folders; warning: emits `[omnifocus-warning] full-text-search ...`
+- `update-folder <folder-id>`: update or move an existing folder by id
+
+Tag modes:
+
 - `create-tag`: create a new tag
-- `update-tag <tag-id-or-name>`: update or move an existing tag
-- `delete-tag <tag-id-or-name>`: delete an existing tag
-- `search`: search tasks by text
-- `detail <task-id>`: detailed metadata for one task
-- `create`: create a new task
-- `update <task-id>`: update an existing task
-- `delete <task-id>`: delete an existing task
+- `delete-tag <tag-id>`: delete an existing tag by id
+- `search-tags`: full-text search tags; warning: emits `[omnifocus-warning] full-text-search ...`
+- `tag-detail <tag-id>`: detailed metadata for one tag by id
+- `tag-detail-by-name <tag-name>`: detailed metadata for one tag by exact name
+- `tags`: list tags
+- `update-tag <tag-id>`: update or move an existing tag by id
 
 ## Use From Codex
 
@@ -109,7 +125,9 @@ Once the plugin is installed, ask Codex naturally:
 - `Mark this OmniFocus task as flagged`
 - `Delete this OmniFocus task`
 
-For broad task requests, the skill uses `remaining` by default.
+For broad task and project searches, the skill uses `remaining` by default. Use `all`, `completed`, or `dropped` only when the user explicitly asks for that wider set. Direct detail lookups by id do not need scope filtering.
+
+Task list modes default to `limit=10` and return `{mode,count,limit,tasks}`. Without `detail=true`, task list modes use one bulk OmniFocus `properties of every ...` read for the selected mode, then build JSON locally from those records. Use a larger `limit` or `limit=all` only for an explicit broader or complete dump. Use `detail=true` only when project, folder, tag, and note fields are needed, because that requires per-task detail reads and can be slow. Remaining-style list modes use OmniFocus effective status, so tasks inside completed or dropped containers are not returned as remaining. Task modes exclude OmniFocus project root tasks; use project modes for projects.
 
 For ambiguous updates or deletes, Codex should first identify the matching task or project and ask for confirmation.
 
@@ -118,37 +136,38 @@ For ambiguous updates or deletes, Codex should first identify the matching task 
 Create an inbox task:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript create name="Task title" note="Optional note"
+osascript scripts/read_omnifocus_tasks.applescript create-task name="Task title" note="Optional note"
 ```
 
 Create a task in a project:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript create name="Task title" project="Project name"
+osascript scripts/read_omnifocus_tasks.applescript create-task name="Task title" project="Project name"
 ```
 
 Read detailed task metadata:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript detail task-id
+osascript scripts/read_omnifocus_tasks.applescript task-detail task-id
 ```
 
 Search tasks:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search query="Natalia" limit=5
+osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" limit=5
 ```
 
 Search projects:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search-projects query="Energy" scope=all detail=true
+osascript scripts/read_omnifocus_tasks.applescript search-projects query="Energy" detail=true
 ```
 
 Read detailed project metadata:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript project-detail project-id-or-name
+osascript scripts/read_omnifocus_tasks.applescript project-detail project-id
+osascript scripts/read_omnifocus_tasks.applescript project-detail-by-name "Project name"
 ```
 
 Create a project:
@@ -166,13 +185,13 @@ osascript scripts/read_omnifocus_tasks.applescript create-project name="Project 
 Update a project:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript update-project project-id-or-name completed=true
+osascript scripts/read_omnifocus_tasks.applescript update-project project-id completed=true
 ```
 
 Delete a project:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript delete-project project-id-or-name
+osascript scripts/read_omnifocus_tasks.applescript delete-project project-id
 ```
 
 List folders and tags:
@@ -189,53 +208,59 @@ osascript scripts/read_omnifocus_tasks.applescript search-folders query="Arbeid"
 osascript scripts/read_omnifocus_tasks.applescript search-tags query="Kontoret"
 ```
 
+List tasks with a tag:
+
+```sh
+osascript scripts/read_omnifocus_tasks.applescript tasks-by-tag-name "Venter på"
+```
+
 Create, update, or delete a folder:
 
 ```sh
 osascript scripts/read_omnifocus_tasks.applescript create-folder name="Folder title"
-osascript scripts/read_omnifocus_tasks.applescript update-folder folder-id-or-name name="New folder title" parent="Parent folder"
-osascript scripts/read_omnifocus_tasks.applescript delete-folder folder-id-or-name
+osascript scripts/read_omnifocus_tasks.applescript update-folder folder-id name="New folder title" parent="Parent folder"
+osascript scripts/read_omnifocus_tasks.applescript delete-folder folder-id
 ```
 
 Create, update, or delete a tag:
 
 ```sh
 osascript scripts/read_omnifocus_tasks.applescript create-tag name="Tag title"
-osascript scripts/read_omnifocus_tasks.applescript update-tag tag-id-or-name name="New tag title" parent="Parent tag"
-osascript scripts/read_omnifocus_tasks.applescript delete-tag tag-id-or-name
+osascript scripts/read_omnifocus_tasks.applescript update-tag tag-id name="New tag title" parent="Parent tag"
+osascript scripts/read_omnifocus_tasks.applescript delete-tag tag-id
 ```
 
 Replace, add, or remove task tags:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript update task-id tags="Office,Next"
-osascript scripts/read_omnifocus_tasks.applescript update task-id addTag="Errand"
-osascript scripts/read_omnifocus_tasks.applescript update task-id removeTag="Waiting"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id tags="Office,Next"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id addTag="Errand"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id removeTag="Waiting"
 ```
 
 Search completed or all tasks:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search query="Natalia" scope=completed
-osascript scripts/read_omnifocus_tasks.applescript search query="Natalia" scope=all
+osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" scope=completed
+osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" scope=all
 ```
 
 Return detailed task objects from search:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript search query="Natalia" detail=true
+osascript scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" detail=true
 ```
 
 Update a task:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript update task-id flagged=true note="Updated note"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id flagged=true note="Updated note"
 ```
 
 Delete a task:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript delete task-id
+osascript scripts/read_omnifocus_tasks.applescript delete-task task-id
 ```
 
 Supported create/update fields:
@@ -279,7 +304,7 @@ Task tag fields:
 - `addTag`: add one tag or a comma-separated list.
 - `removeTag`: remove one tag or a comma-separated list.
 
-Project tag fields use the same names, but OmniFocus AppleScript only accepted primary-tag fallback in testing. Tasks support full multi-tag add/remove through `tags of task`.
+Project tag fields use the same names as task tag fields. Tag collection edits now fail directly if OmniFocus rejects them, instead of falling back to primary-tag assignment.
 
 Supported folder create/update fields:
 
@@ -298,9 +323,13 @@ Supported tag create/update fields:
 
 Date values are parsed by macOS AppleScript using the current locale.
 
-Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive.
+Search matches task id, name/title, note, project, folder, primary tag, and tags. Matching is case-insensitive. General searches default to remaining tasks; use `scope=all` or `scope=completed` only when the user explicitly asks for all or completed tasks. Use `tasks-by-tag-name` or `tasks-by-tag` instead of `search-tasks` when the intent is specifically to list tasks with a tag.
+
+Full-text search modes write `[omnifocus-warning] full-text-search ...` to stderr so callers can spot broad searches and switch to narrower commands when possible.
 
 Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
+
+Project searches default to remaining projects; use `scope=all`, `scope=completed`, or `scope=dropped` only when explicitly requested.
 
 Folder search matches folder id, name/title, note, and parent. Tag search matches tag id, name/title, note, and parent. Matching is case-insensitive.
 

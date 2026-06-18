@@ -17,42 +17,54 @@ Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus
 
 ## Execution Contract
 
-Always run `osascript` through Codex `exec_command` with `sandbox_permissions=require_escalated` on the first attempt. All helper modes (`inbox`, `available`, `remaining`, `flagged`, `due`, `deferred`, `completed`, `projects`, `search`, `detail`, `create`, `update`, `delete`) require macOS Automation access and must not be sandbox-probed first.
+Always run `osascript` through Codex `exec_command` with `sandbox_permissions=require_escalated` on the first attempt. All helper modes require macOS Automation access and must not be sandbox-probed first.
 
 ## Workflow
 
 1. Choose the narrowest task scope that satisfies the request.
+   - For general task or project searches, use the default `remaining` scope unless the user explicitly asks to search completed tasks, history, archived/dropped items, or everything.
+   - Do not pass `scope=all` or `scope=completed` by default. Completed tasks are not interesting unless the user asks for them.
+   - Direct task detail lookups by id (`task-detail <task-id>`) do not need scope filtering.
 2. Run the AppleScript helper with one of these modes:
-   - `inbox`: incomplete inbox tasks.
-   - `available`: incomplete available tasks.
-   - `remaining`: all incomplete tasks.
-   - `flagged`: incomplete flagged tasks.
-   - `due`: incomplete tasks with a due date.
-   - `deferred`: incomplete tasks with a defer date.
-   - `completed`: completed tasks.
-   - `projects [scope=remaining]`: projects. Supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`.
-   - `search-projects query=<text> [scope=remaining] [limit=50] [detail=false]`: search projects.
-   - `project-detail <project-id-or-name>`: full project details.
+   Task modes:
+   - `create-task name=<title> [note=...] [project=...] [tag=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
+   - `delete-task <task-id>`: delete a task.
+   - `search-tasks query=<text> [scope=remaining] [limit=50] [detail=false]`: full-text search tasks. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
+   - `task-detail <task-id>`: full task details.
+   - `tasks-available [limit=10|all] [detail=false]`: incomplete available tasks by effective status.
+   - `tasks-by-tag <tag-id> [scope=remaining] [limit=50] [detail=false]`: list tasks with a tag by id.
+   - `tasks-by-tag-name <tag-name> [scope=remaining] [limit=50] [detail=false]`: list tasks with a tag by exact name.
+   - `tasks-completed [limit=10|all] [detail=false]`: completed tasks by effective status.
+   - `tasks-deferred [limit=10|all] [detail=false]`: incomplete tasks with a defer date by effective status.
+   - `tasks-due [limit=10|all] [detail=false]`: incomplete tasks with a due date by effective status.
+   - `tasks-flagged [limit=10|all] [detail=false]`: incomplete flagged tasks by effective status.
+   - `tasks-inbox [limit=10|all] [detail=false]`: incomplete inbox tasks.
+   - `tasks-remaining [limit=10|all] [detail=false]`: incomplete, not dropped tasks by effective status, excluding project root tasks.
+   - `update-task <task-id> name=... note=... flagged=true completed=false due=... defer=... tag=... project=... estimatedMinutes=15`: update a task.
+   Project modes:
    - `create-project name=<title> [note=...] [folder=...] [tag=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
-   - `update-project <project-id-or-name> name=... note=... completed=true status=... due=... defer=... folder=... tag=... flagged=true sequential=true estimatedMinutes=15`: update a project.
-   - `delete-project <project-id-or-name>`: delete a project.
-   - `folders`: list folders.
-   - `search-folders query=<text> [limit=50]`: search folders.
-   - `folder-detail <folder-id-or-name>`: full folder details.
+   - `delete-project <project-id>`: delete a project by id.
+   - `project-detail <project-id>`: full project details by id.
+   - `project-detail-by-name <project-name>`: full project details by exact name.
+   - `projects [scope=remaining]`: projects. Supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`.
+   - `search-projects query=<text> [scope=remaining] [limit=50] [detail=false]`: full-text search projects. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
+   - `update-project <project-id> name=... note=... completed=true status=... due=... defer=... folder=... tag=... flagged=true sequential=true estimatedMinutes=15`: update a project by id.
+   Folder modes:
    - `create-folder name=<title> [note=...] [folder=...]`: create a folder.
-   - `update-folder <folder-id-or-name> name=... note=... folder=... hidden=false`: update or move a folder.
-   - `delete-folder <folder-id-or-name>`: delete a folder.
-   - `tags`: list tags.
-   - `search-tags query=<text> [limit=50]`: search tags.
-   - `tag-detail <tag-id-or-name>`: full tag details.
+   - `delete-folder <folder-id>`: delete a folder by id.
+   - `folder-detail <folder-id>`: full folder details by id.
+   - `folder-detail-by-name <folder-name>`: full folder details by exact name.
+   - `folders`: list folders.
+   - `search-folders query=<text> [limit=50]`: full-text search folders. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
+   - `update-folder <folder-id> name=... note=... folder=... hidden=false`: update or move a folder by id.
+   Tag modes:
    - `create-tag name=<title> [note=...] [tag=...] [allowsNextAction=true]`: create a tag.
-   - `update-tag <tag-id-or-name> name=... note=... tag=... allowsNextAction=true hidden=false`: update or move a tag.
-   - `delete-tag <tag-id-or-name>`: delete a tag.
-   - `search query=<text> [scope=remaining] [limit=50] [detail=false]`: search tasks.
-   - `detail <task-id>`: full task details.
-   - `create name=<title> [note=...] [project=...] [tag=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
-   - `update <task-id> name=... note=... flagged=true completed=false due=... defer=... tag=... project=... estimatedMinutes=15`: update a task.
-   - `delete <task-id>`: delete a task.
+   - `delete-tag <tag-id>`: delete a tag by id.
+   - `search-tags query=<text> [limit=50]`: full-text search tags. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
+   - `tag-detail <tag-id>`: full tag details by id.
+   - `tag-detail-by-name <tag-name>`: full tag details by exact name.
+   - `tags`: list tags.
+   - `update-tag <tag-id> name=... note=... tag=... allowsNextAction=true hidden=false`: update or move a tag by id.
 3. For ambiguous edits or deletes, identify the task first and ask for confirmation before making a destructive or hard-to-reverse change.
 4. Parse the JSON output instead of scraping OmniFocus UI text.
 5. Summarize only the relevant fields unless the user asks for raw JSON.
@@ -62,32 +74,49 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
 ## Commands
 
 ```sh
-osascript ../../scripts/read_omnifocus_tasks.applescript remaining
-osascript ../../scripts/read_omnifocus_tasks.applescript inbox
-osascript ../../scripts/read_omnifocus_tasks.applescript flagged
-osascript ../../scripts/read_omnifocus_tasks.applescript due
-osascript ../../scripts/read_omnifocus_tasks.applescript projects
-osascript ../../scripts/read_omnifocus_tasks.applescript search-projects query="Energy" scope=all detail=true
-osascript ../../scripts/read_omnifocus_tasks.applescript project-detail <project-id-or-name>
+# Tasks
+osascript ../../scripts/read_omnifocus_tasks.applescript create-task name="Task title" note="Optional note"
+osascript ../../scripts/read_omnifocus_tasks.applescript delete-task <task-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript search-tasks query="Natalia" limit=5
+osascript ../../scripts/read_omnifocus_tasks.applescript task-detail <task-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-available
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-by-tag <tag-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-by-tag-name "Waiting"
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-completed
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-deferred
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-due
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-flagged
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-inbox
+osascript ../../scripts/read_omnifocus_tasks.applescript tasks-remaining
+osascript ../../scripts/read_omnifocus_tasks.applescript update-task <task-id> flagged=true
+
+# Projects
 osascript ../../scripts/read_omnifocus_tasks.applescript create-project name="Project title" note="Optional note"
-osascript ../../scripts/read_omnifocus_tasks.applescript update-project <project-id-or-name> completed=true
-osascript ../../scripts/read_omnifocus_tasks.applescript delete-project <project-id-or-name>
+osascript ../../scripts/read_omnifocus_tasks.applescript delete-project <project-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript project-detail <project-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript project-detail-by-name "Project name"
+osascript ../../scripts/read_omnifocus_tasks.applescript projects
+osascript ../../scripts/read_omnifocus_tasks.applescript search-projects query="Energy" detail=true
+osascript ../../scripts/read_omnifocus_tasks.applescript update-project <project-id> completed=true
+
+# Folders
+osascript ../../scripts/read_omnifocus_tasks.applescript create-folder name="Folder title"
 osascript ../../scripts/read_omnifocus_tasks.applescript folders
 osascript ../../scripts/read_omnifocus_tasks.applescript search-folders query="Work"
-osascript ../../scripts/read_omnifocus_tasks.applescript create-folder name="Folder title"
-osascript ../../scripts/read_omnifocus_tasks.applescript tags
-osascript ../../scripts/read_omnifocus_tasks.applescript search-tags query="Office"
+
+# Tags
 osascript ../../scripts/read_omnifocus_tasks.applescript create-tag name="Tag title"
-osascript ../../scripts/read_omnifocus_tasks.applescript search query="Natalia" limit=5
-osascript ../../scripts/read_omnifocus_tasks.applescript detail <task-id>
-osascript ../../scripts/read_omnifocus_tasks.applescript create name="Task title" note="Optional note"
-osascript ../../scripts/read_omnifocus_tasks.applescript update <task-id> flagged=true
-osascript ../../scripts/read_omnifocus_tasks.applescript delete <task-id>
+osascript ../../scripts/read_omnifocus_tasks.applescript search-tags query="Office"
+osascript ../../scripts/read_omnifocus_tasks.applescript tags
 ```
 
 ## Search
 
-Use `search` when the user refers to a task by description, person, project, note text, tag, or partial title. This is preferred over reading all `remaining` tasks and filtering locally.
+Use `search-tasks` when the user refers to a task by description, person, project, note text, tag, or partial title. This is preferred over reading all `remaining` tasks and filtering locally.
+
+Default to `scope=remaining` for general searches. Use `scope=all` or `scope=completed` only when the user explicitly asks for all tasks, completed tasks, history, or an old/closed item. This scope rule does not apply to direct lookup by task id with `task-detail`.
+
+Full-text search modes emit `[omnifocus-warning] full-text-search ...` to stderr. Treat that warning as a signal to prefer a narrower mode such as `task-detail`, `tasks-by-tag`, or `tasks-by-tag-name` when the intent allows it.
 
 Supported options:
 
@@ -100,6 +129,8 @@ Search matches task id, name/title, note, project, folder, primary tag, and tags
 
 Use `search-projects` when the user refers to a project by description, folder, note text, tag, status, or partial title. This is preferred over reading all projects and filtering locally.
 
+Default to `scope=remaining` for project searches. Use `scope=all`, `scope=completed`, or `scope=dropped` only when the user explicitly asks for that wider set.
+
 Supported project search options:
 
 - `query` or `q`: text to find.
@@ -109,11 +140,17 @@ Supported project search options:
 
 Project search matches project id, name/title, note, status, folder, and primary tag. Matching is case-insensitive.
 
-Use `search-folders` when the user refers to a folder by name, parent, or note text. Use `search-tags` when the user refers to a tag by name, parent, or note text.
+Use `search-folders` when the user refers to a folder by name, parent, or note text. Use `search-tags` when the user refers to a tag by name, parent, or note text. Both are full-text search modes and emit `[omnifocus-warning] full-text-search ...` to stderr.
+
+Use `tasks-by-tag-name` when the user asks for tasks with a specific tag or says tasks are "tagged", "marked", or "merket" with a tag by name. Use `tasks-by-tag` when the tag id is already known. Prefer these over `search-tasks query=<tag name>` because they go directly through the tag relationship instead of doing a broader text search.
+
+Use the default `remaining` scope for tag task lookups unless the user explicitly asks for completed or all tagged tasks.
+
+Task list modes default to `limit=10` and return `{mode,count,limit,tasks}`. Without `detail=true`, task list modes use one bulk OmniFocus `properties of every ...` read for the selected mode, then build JSON locally from those records. Use a larger `limit` or `limit=all` only when the user explicitly asks for a broader or complete dump. Use `detail=true` only when project, folder, tag, and note fields are needed, because that requires per-task detail reads and can be slow. `tasks-remaining`, `tasks-available`, `tasks-due`, `tasks-deferred`, and `tasks-flagged` filter by OmniFocus effective status, so tasks inside completed or dropped containers are excluded. Task modes also exclude OmniFocus project root tasks; use project modes for projects.
 
 ## Write Operations
 
-Use `create` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
+Use `create-task` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
 
 Use `update` for task changes. Supported fields:
 
@@ -145,8 +182,8 @@ Use `update-project` for project changes. Supported fields:
 - `due`
 - `defer`
 - `tag`
-- `tags`: comma-separated list. OmniFocus AppleScript supports full multi-tag add/remove for tasks; projects fall back to primary tag when the project object rejects tag collection edits.
-- `addTag`: one tag or comma-separated tags. Full multi-tag is verified for tasks; projects use primary-tag fallback.
+- `tags`: comma-separated list. Replaces all existing tags and fails if OmniFocus rejects the tag collection edit.
+- `addTag`: one tag or comma-separated tags. Adds tags and fails if OmniFocus rejects the tag collection edit.
 - `removeTag`: one tag or comma-separated tags.
 - `folder`
 - `sequential`
@@ -211,7 +248,25 @@ Your OmniFocus inbox has 1 incomplete item:
 
 ## Output Shape
 
-Task modes return JSON like:
+Task search and tag task modes return JSON objects with `tasks`. Task list modes such as `tasks-remaining` return JSON like:
+
+```json
+{
+  "mode": "tasks-remaining",
+  "count": 12,
+  "limit": 10,
+  "tasks": [
+    {
+      "id": "omnifocus-task-id",
+      "name": "Task name",
+      "effectivelyCompleted": false,
+      "effectivelyDropped": false
+    }
+  ]
+}
+```
+
+Individual task objects look like:
 
 ```json
 [
