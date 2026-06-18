@@ -9,7 +9,7 @@ Use this skill when the user asks to search OmniFocus, read tasks from OmniFocus
 
 ## Requirements
 
-- OmniFocus must be installed on the Mac where Codex is running.
+- OmniFocus 4 must be installed on the Mac where Codex is running.
 - OmniFocus automation access must be allowed in macOS Privacy & Security settings if prompted.
 - Use the helper script at `../../scripts/read_omnifocus_tasks.applescript` through `osascript`.
 - Resolve that helper path relative to this skill directory. In an installed plugin cache, the script lives at the plugin root under `scripts/`, not inside `skills/omnifocus/`.
@@ -144,7 +144,7 @@ Use `tasks-by-tag-name` when the user asks for tasks with a specific tag or says
 
 Use the default `remaining` scope for tag task lookups unless the user explicitly asks for completed or all tagged tasks. Tag task lookups support `limit=all`.
 
-Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,tasks}`. Task list modes do not compute an exact count by default; they fetch up to `limit + 1` matching tasks, return `count:null`, and set `hasMore:true` when there are more results. Use `count=true` only when the user needs an exact total, because that requires reading the full matching set and can be slow. Use `limit=all` only when the user explicitly asks for a complete dump. Collection commands return summary fields; when full metadata is needed, first identify the item from the collection result, then call the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) for that individual item. `tasks-remaining`, `tasks-available`, `tasks-due`, `tasks-deferred`, and `tasks-flagged` filter by OmniFocus effective status, so tasks inside completed or dropped containers are excluded. Task modes also exclude OmniFocus project root tasks; use project modes for projects.
+Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,tasks}`. Tag task modes return `{tag,scope,count,hasMore,limit,tasks}`. Task list and tag task modes do not compute an exact count by default; they fetch up to `limit + 1` matching tasks, return `count:null`, and set `hasMore:true` when there are more results. Use `count=true` only when the user needs an exact total, because that requires reading the full matching set and can be slow. Search modes return an exact `count` for matches. Use `limit=all` only when the user explicitly asks for a complete dump. Collection commands return summary fields; when full metadata is needed, first identify the item from the collection result, then call the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) for that individual item. `tasks-remaining`, `tasks-available`, `tasks-due`, `tasks-deferred`, and `tasks-flagged` filter by OmniFocus effective status, so tasks inside completed or dropped containers are excluded. Task modes also exclude OmniFocus project root tasks; use project modes for projects.
 
 ## Write Operations
 
@@ -207,6 +207,8 @@ Use `create-tag`, `update-tag`, and `delete-tag` for tag management. Supported t
 
 Date values are parsed by macOS AppleScript in the current locale. If date parsing fails, ask the user for a clearer date/time.
 
+Create and update operations return `{ok:true,operation:<created|updated>,<object>:...}` with detailed JSON for the changed object. Delete operations return `{ok:true,operation:"deleted",<object>:...}` with the deleted object's JSON captured before deletion.
+
 ## Response Style
 
 Prefer concise updates such as:
@@ -246,53 +248,55 @@ Your OmniFocus inbox has 1 incomplete item:
 
 ## Output Shape
 
-Task search and tag task modes return JSON objects with `tasks`. Task list modes such as `tasks-remaining` return JSON like:
+Collection commands return compact summaries. Use the matching detail command when full metadata is needed for one item.
+
+Task list modes such as `tasks-remaining` return JSON like:
 
 ```json
 {
   "mode": "tasks-remaining",
-  "count": 12,
-  "limit": 10,
+  "count": null,
+  "hasMore": true,
+  "limit": 50,
   "tasks": [
     {
       "id": "omnifocus-task-id",
       "name": "Task name",
+      "flagged": false,
+      "completed": false,
       "effectivelyCompleted": false,
-      "effectivelyDropped": false
+      "effectivelyDropped": false,
+      "due": "",
+      "defer": ""
     }
   ]
 }
 ```
 
-Individual task objects look like:
+Tag task modes return the tag and matching task summaries:
 
 ```json
-[
-  {
-    "id": "omnifocus-task-id",
-    "name": "Task name",
-    "project": "Project name",
-    "folder": "Folder name",
-    "context": "Tag name",
-    "flagged": false,
-    "completed": false,
-    "due": "2026-06-09 12:00:00",
-    "defer": "",
-    "estimatedMinutes": 15,
-    "note": "Optional note"
-  }
-]
+{
+  "tag": {
+    "id": "omnifocus-tag-id",
+    "name": "Tag name"
+  },
+  "scope": "remaining",
+  "count": null,
+  "hasMore": false,
+  "limit": 50,
+  "tasks": []
+}
 ```
 
-Project mode returns JSON like:
+Project list modes return project summaries:
 
 ```json
 [
   {
     "id": "omnifocus-project-id",
     "name": "Project name",
-    "folder": "Folder name",
-    "status": "active",
+    "status": "active status",
     "completed": false,
     "due": "",
     "defer": "",
@@ -301,12 +305,50 @@ Project mode returns JSON like:
 ]
 ```
 
-Detail mode returns the task shape plus extra fields:
+Folder list modes return folder summaries:
+
+```json
+[
+  {
+    "id": "omnifocus-folder-id",
+    "name": "Folder name",
+    "hidden": false,
+    "note": "Optional note"
+  }
+]
+```
+
+Tag list modes return tag summaries:
+
+```json
+[
+  {
+    "id": "omnifocus-tag-id",
+    "name": "Tag name",
+    "allowsNextAction": true,
+    "hidden": false,
+    "availableTaskCount": 0,
+    "remainingTaskCount": 0,
+    "note": "Optional note"
+  }
+]
+```
+
+Task detail mode returns full metadata for one task:
 
 ```json
 {
   "id": "omnifocus-task-id",
   "name": "Task name",
+  "project": "Project name",
+  "folder": "Folder name",
+  "context": "Tag name",
+  "flagged": false,
+  "completed": false,
+  "due": "",
+  "defer": "",
+  "estimatedMinutes": 15,
+  "note": "Optional note",
   "blocked": false,
   "next": true,
   "inInbox": false,
@@ -332,9 +374,22 @@ Search mode returns:
   "scope": "remaining",
   "count": 1,
   "limit": 5,
-  "tasks": []
+  "tasks": [
+    {
+      "id": "omnifocus-task-id",
+      "name": "Task name",
+      "flagged": false,
+      "completed": false,
+      "effectivelyCompleted": false,
+      "effectivelyDropped": false,
+      "due": "",
+      "defer": ""
+    }
+  ]
 }
 ```
+
+Project, folder, and tag search modes use the same wrapper pattern, with matched summaries under `projects`, `folders`, or `tags`.
 
 ## Notes
 
