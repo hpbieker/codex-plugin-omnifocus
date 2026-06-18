@@ -195,7 +195,7 @@ class Benchmark:
             "create task in project",
             "create-task",
             f"name={task_name}",
-            f"project={project_name_2}",
+            f"projectId={self.created['project']}",
             f"tagName={tag_name_2}",
             "note=performance test temporary task",
             "flagged=true",

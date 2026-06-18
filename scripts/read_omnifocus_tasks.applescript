@@ -152,9 +152,8 @@ on createTask(optionsMap)
 	
 	tell application id (omniFocusAppID as text)
 		tell front document
-			set projectName to my optionValue(optionsMap, "project")
-			if projectName is not "" then
-				set targetProject to my findProjectByName(projectName)
+			set targetProject to my projectFromTaskOptions(optionsMap)
+			if targetProject is not missing value then
 				set taskItem to make new «class FCac» at end of tasks of targetProject with properties {name:taskName}
 			else
 				set taskItem to make new «class FCit» with properties {name:taskName}
@@ -254,10 +253,9 @@ on updateTask(taskItem, optionsMap)
 		if my hasOption(optionsMap, "removeTagNames") then my removeTagNamesFromItem(taskItem, my optionValue(optionsMap, "removeTagNames"))
 		if my hasOption(optionsMap, "removeTag") then my removeTagNamesFromItem(taskItem, my optionValue(optionsMap, "removeTag"))
 		
-		if my hasOption(optionsMap, "project") then
-			set projectName to my optionValue(optionsMap, "project")
-			if projectName is not "" then
-				set targetProject to my findProjectByName(projectName)
+		if my hasOption(optionsMap, "projectId") or my hasOption(optionsMap, "project") then
+			set targetProject to my projectFromTaskOptions(optionsMap)
+			if targetProject is not missing value then
 				move taskItem to end of tasks of targetProject
 			end if
 		end if
@@ -502,6 +500,15 @@ on findProjectByName(projectName)
 		end tell
 	end tell
 end findProjectByName
+
+on projectFromTaskOptions(optionsMap)
+	set projectID to my optionValue(optionsMap, "projectId")
+	if projectID is not "" then return my findProjectByID(projectID)
+	
+	set projectName to my optionValue(optionsMap, "project")
+	if projectName is "" then return missing value
+	return my findProjectByName(projectName)
+end projectFromTaskOptions
 
 on findFolderByID(folderID)
 	tell application id (omniFocusAppID as text)
@@ -1037,37 +1044,38 @@ on shouldIncludeProjectProperties(projectPropertiesItem, projectScope)
 end shouldIncludeProjectProperties
 
 on operationToJSON(operationName, taskItem)
-	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"task\":" & my detailTaskToJSON(taskItem) & "}"
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"task\":" & my taskToJSON(taskItem) & "}"
 end operationToJSON
 
 on projectOperationToJSON(operationName, projectItem)
-	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"project\":" & my detailProjectToJSON(projectItem) & "}"
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"project\":" & my projectToJSON(projectItem) & "}"
 end projectOperationToJSON
 
 on folderOperationToJSON(operationName, folderItem)
-	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"folder\":" & my detailFolderToJSON(folderItem) & "}"
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"folder\":" & my folderToJSON(folderItem) & "}"
 end folderOperationToJSON
 
 on tagOperationToJSON(operationName, tagItem)
-	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"tag\":" & my detailTagToJSON(tagItem) & "}"
+	return "{\"ok\":true,\"operation\":\"" & operationName & "\",\"tag\":" & my tagToJSON(tagItem) & "}"
 end tagOperationToJSON
 
 on taskToJSON(taskItem)
 	tell application id (omniFocusAppID as text)
 		tell taskItem
-			set taskId to my safeValue(id)
-			set taskName to my safeValue(name)
-			set taskNote to my safeValue(note)
-			set taskFlagged to flagged
-			set taskCompleted to completed
-			set taskDue to my dateValue(«property FCDd»)
-			set taskDefer to my dateValue(«property FCDs»)
-			set taskEstimate to my numberValue(«property FCEM»)
+			set taskProperties to properties
+			set taskId to my safeValue(id of taskProperties)
+			set taskName to my safeValue(name of taskProperties)
+			set taskNote to my safeValue(note of taskProperties)
+			set taskFlagged to flagged of taskProperties
+			set taskCompleted to completed of taskProperties
+			set taskDue to my dateValue(«property FCDd» of taskProperties)
+			set taskDefer to my dateValue(«property FCDs» of taskProperties)
+			set taskEstimate to my numberValue(«property FCEM» of taskProperties)
 			
 			set projectName to ""
 			set folderName to ""
 			try
-				set containingProject to «property FCPr»
+				set containingProject to «property FCPr» of taskProperties
 				if containingProject is not missing value then
 					set projectName to my safeValue(name of containingProject)
 					try
@@ -1079,7 +1087,8 @@ on taskToJSON(taskItem)
 			
 			set contextName to ""
 			try
-				if «property FCpt» is not missing value then set contextName to my safeValue(name of «property FCpt»)
+				set primaryTag to «property FCpt» of taskProperties
+				if primaryTag is not missing value then set contextName to my safeValue(name of primaryTag)
 			end try
 		end tell
 	end tell
@@ -1152,17 +1161,19 @@ end detailTaskToJSON
 on projectToJSON(projectItem)
 	tell application id (omniFocusAppID as text)
 		tell projectItem
-			set projectId to my safeValue(id)
-			set projectName to my safeValue(name)
-			set projectNote to my safeValue(note)
-			set projectCompleted to completed
-			set projectDue to my dateValue(«property FCDd»)
-			set projectDefer to my dateValue(«property FCDs»)
-			set projectStatus to my safeValue(status as text)
+			set projectProperties to properties
+			set projectId to my safeValue(id of projectProperties)
+			set projectName to my safeValue(name of projectProperties)
+			set projectNote to my safeValue(note of projectProperties)
+			set projectCompleted to completed of projectProperties
+			set projectDue to my dateValue(«property FCDd» of projectProperties)
+			set projectDefer to my dateValue(«property FCDs» of projectProperties)
+			set projectStatus to my safeValue(status of projectProperties as text)
 			
 			set folderName to ""
 			try
-				if folder is not missing value then set folderName to my safeValue(name of folder)
+				set containingFolder to folder of projectProperties
+				if containingFolder is not missing value then set folderName to my safeValue(name of containingFolder)
 			end try
 		end tell
 	end tell
@@ -1182,14 +1193,15 @@ end projectToJSON
 on folderToJSON(folderItem)
 	tell application id (omniFocusAppID as text)
 		tell folderItem
-			set folderId to my safeValue(id)
-			set folderName to my safeValue(name)
-			set folderNote to my safeValue(note)
-			set folderHidden to hidden
+			set folderProperties to properties
+			set folderId to my safeValue(id of folderProperties)
+			set folderName to my safeValue(name of folderProperties)
+			set folderNote to my safeValue(note of folderProperties)
+			set folderHidden to hidden of folderProperties
 			
 			set parentName to ""
 			try
-				set parentItem to container
+				set parentItem to container of folderProperties
 				if parentItem is not missing value then set parentName to my safeValue(name of parentItem)
 			end try
 		end tell
@@ -1207,17 +1219,19 @@ end folderToJSON
 on tagToJSON(tagItem)
 	tell application id (omniFocusAppID as text)
 		tell tagItem
-			set tagId to my safeValue(id)
-			set tagName to my safeValue(name)
-			set tagNote to my safeValue(note)
-			set tagAllowsNext to «property FCNA»
-			set tagHidden to hidden
-			set tagAvailableCount to my numberValue(«property FCa#»)
-			set tagRemainingCount to my numberValue(«property FCr#»)
+			set tagProperties to properties
+			set tagId to my safeValue(id of tagProperties)
+			set tagName to my safeValue(name of tagProperties)
+			set tagNote to my safeValue(note of tagProperties)
+			set tagAllowsNext to «property FCNA» of tagProperties
+			set tagHidden to hidden of tagProperties
+			set tagAvailableCount to my numberValue(«property FCa#» of tagProperties)
+			set tagRemainingCount to my numberValue(«property FCr#» of tagProperties)
 			
 			set parentName to ""
 			try
-				if container is not missing value then set parentName to my safeValue(name of container)
+				set parentItem to container of tagProperties
+				if parentItem is not missing value then set parentName to my safeValue(name of parentItem)
 			end try
 		end tell
 	end tell

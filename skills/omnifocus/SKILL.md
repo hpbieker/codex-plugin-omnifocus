@@ -27,7 +27,7 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
    - Direct task detail lookups by id (`task-detail <task-id>`) do not need scope filtering.
 2. Run the AppleScript helper with one of these modes:
    Task modes:
-   - `create-task name=<title> [note=...] [project=...] [tagName=...|tagId=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
+   - `create-task name=<title> [note=...] [project=<name>|projectId=<id>] [tagName=...|tagId=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
    - `delete-task <task-id>`: delete a task.
    - `search-tasks query=<text> [scope=remaining] [limit=50|all]`: full-text search task summaries. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
    - `task-detail <task-id>`: full task details.
@@ -40,7 +40,7 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
    - `tasks-flagged [limit=50|all]`: incomplete flagged task summaries by effective status.
    - `tasks-inbox [limit=50|all]`: incomplete inbox task summaries.
    - `tasks-remaining [limit=50|all]`: incomplete, not dropped task summaries by effective status, excluding project root tasks.
-   - `update-task <task-id> name=... note=... flagged=true completed=false due=... defer=... tagName=... tagId=... project=... estimatedMinutes=15`: update a task.
+   - `update-task <task-id> name=... note=... flagged=true completed=false due=... defer=... tagName=... tagId=... project=<name> projectId=<id> estimatedMinutes=15`: update a task.
    Project modes:
    - `create-project name=<title> [note=...] [folder=...] [tagName=...|tagId=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
    - `delete-project <project-id>`: delete a project by id.
@@ -148,7 +148,7 @@ Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,task
 
 ## Write Operations
 
-Use `create-task` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
+Use `create-task` for new inbox tasks unless the user names a project. If you have a project id from a prior OmniFocus result, pass `projectId=<id>`. If you only have user text, pass `project=<project name>`.
 
 For tag fields, prefer explicit identity parameters. Use `tagId`, `tagIds`, `addTagIds`, `removeTagIds`, or `parentTagId` when the tag id came from a previous OmniFocus result. Use `tagName`, `tagNames`, `addTagNames`, `removeTagNames`, or `parentTagName` when the tag comes from user text. Do not pass a tag name in an id field or an id in a name field.
 
@@ -169,6 +169,7 @@ Use `update` for task changes. Supported fields:
 - `removeTag`, `removeTagNames`: one tag name or comma-separated tag names to remove from a task.
 - `removeTagIds`: one tag id or comma-separated tag ids to remove from a task.
 - `project`
+- `projectId`
 - `estimatedMinutes` or `estimated`
 
 Use `delete` only when the user's intent is explicit or after confirmation. Deletion returns the deleted task's summary JSON.

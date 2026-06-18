@@ -167,6 +167,7 @@ Create a task in a project:
 
 ```sh
 osascript scripts/read_omnifocus_tasks.applescript create-task name="Task title" project="Project name"
+osascript scripts/read_omnifocus_tasks.applescript create-task name="Task title" projectId="project-id"
 ```
 
 Read detailed task metadata:
@@ -307,6 +308,7 @@ Supported create/update fields:
 - `removeTagNames`
 - `removeTag`
 - `project`
+- `projectId`
 - `estimatedMinutes` or `estimated`
 
 Supported project create/update fields:
