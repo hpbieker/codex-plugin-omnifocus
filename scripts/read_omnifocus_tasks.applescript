@@ -1,6 +1,6 @@
 property omniFocusAppID : "com.omnigroup.OmniFocus4"
 
-using terms from application "/Applications/OmniFocus.app"
+using terms from application id "com.omnigroup.OmniFocus4"
 
 on run argv
 	set requestedMode to "tasks-remaining"

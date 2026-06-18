@@ -1,16 +1,16 @@
 {
   "name": "omnifocus",
   "version": "0.1.0+codex.20260618104100",
-  "description": "Read and manage OmniFocus tasks via AppleScript.",
+  "description": "Read and manage OmniFocus 4 tasks and projects.",
   "author": {
     "name": "Hans Petter Bieker"
   },
   "license": "MIT",
   "skills": "./skills/",
   "interface": {
-    "displayName": "OmniFocus",
-    "shortDescription": "Read and manage OmniFocus tasks.",
-    "longDescription": "OmniFocus lets Codex read local OmniFocus tasks and projects, inspect task details, and create, update, or delete tasks through an AppleScript helper.",
+    "displayName": "OmniFocus 4",
+    "shortDescription": "Read and manage OmniFocus 4 tasks and projects.",
+    "longDescription": "Lets Codex read and manage local OmniFocus 4 tasks, projects, folders, and tags. Supports reading summaries and details, creating and updating items, and organizing tasks with projects and tags.",
     "developerName": "Hans Petter Bieker",
     "category": "Productivity",
     "capabilities": [
@@ -21,9 +21,11 @@
     "composerIcon": "./assets/omnifocus-icon.png",
     "logo": "./assets/omnifocus-icon.png",
     "defaultPrompt": [
-      "Show my OmniFocus inbox.",
-      "Summarize due OmniFocus tasks.",
-      "List my OmniFocus projects."
+      "What is in my OmniFocus inbox?",
+      "List my OmniFocus tags.",
+      "Show my flagged OmniFocus tasks.",
+      "Summarize upcoming due tasks in OmniFocus.",
+      "List my active OmniFocus projects."
     ]
   }
 }
