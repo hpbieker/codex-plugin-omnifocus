@@ -19,6 +19,7 @@ assets/omnifocus-icon.png
 skills/omnifocus/SKILL.md
 scripts/benchmark_omnifocus.py
 scripts/read_omnifocus_tasks.applescript
+scripts/validate_omnifocus.py
 README.md
 ```
 
@@ -60,13 +61,25 @@ osascript scripts/read_omnifocus_tasks.applescript tasks-remaining
 
 ## Performance Benchmark
 
+Run a read-only smoke test from the repository root:
+
+```sh
+python3 -B scripts/validate_omnifocus.py
+```
+
 Run the repeatable benchmark from the repository root:
 
 ```sh
 python3 -B scripts/benchmark_omnifocus.py --output reports/omnifocus-benchmark.json
 ```
 
-The benchmark creates temporary `CodexPerf-*` folders, tags, projects, and tasks, exercises the supported helper modes, deletes the temporary objects, and prints a JSON report. The report includes total time, median time, the slowest calls, task-list timings, and per-call results. OmniFocus Automation access is required.
+Use `--read-only` for a broader read/search benchmark without creating OmniFocus objects:
+
+```sh
+python3 -B scripts/benchmark_omnifocus.py --read-only --output reports/omnifocus-benchmark.json
+```
+
+The full benchmark creates temporary `CodexPerf-*` folders, tags, projects, and tasks, exercises the supported helper modes, deletes the temporary objects, and prints a JSON report. Cleanup also searches for leftover objects with the benchmark prefix and removes them. The report includes total time, median time, the slowest calls, task-list timings, and per-call results. OmniFocus Automation access is required.
 
 ## Available Modes
 
@@ -138,7 +151,7 @@ Once the plugin is installed, ask Codex naturally:
 
 For broad task and project searches, the skill uses `remaining` by default. Use `all`, `completed`, or `dropped` only when the user explicitly asks for that wider set. Direct detail lookups by id do not need scope filtering.
 
-Task list, search, and tag task modes accept numeric limits or `limit=all`. Task list and tag task modes default to `limit=50`, return `{count,hasMore,limit,tasks}`, and normally avoid computing an exact count; they fetch up to `limit + 1` matching tasks, return `count:null`, and set `hasMore:true` when there are more results. Use `count=true` only when an exact total is needed, because that requires reading the full matching set. Search modes return an exact `count` for matches. Use `limit=all` only for an explicit complete dump. Collection commands return summary fields only; use the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) to fetch full metadata for individual items. Remaining-style list modes use OmniFocus effective status, so tasks inside completed or dropped containers are not returned as remaining. Task modes exclude OmniFocus project root tasks; use project modes for projects.
+Task list, search, and tag task modes accept numeric limits or `limit=all`. These modes default to `limit=50`, return `{count,hasMore,limit,...}`, and normally avoid computing an exact count; they fetch up to `limit + 1` matching items, return `count:null`, and set `hasMore:true` when there are more results. Use `limit=all` only for an explicit complete dump. Collection commands return summary fields only; use the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) to fetch full metadata for individual items. Remaining-style list modes use OmniFocus effective status, so tasks inside completed or dropped containers are not returned as remaining. Task modes exclude OmniFocus project root tasks; use project modes for projects.
 
 For ambiguous updates or deletes, Codex should first identify the matching task or project and ask for confirmation.
 
@@ -237,16 +250,16 @@ Create, update, or delete a tag:
 
 ```sh
 osascript scripts/read_omnifocus_tasks.applescript create-tag name="Tag title"
-osascript scripts/read_omnifocus_tasks.applescript update-tag tag-id name="New tag title" parent="Parent tag"
+osascript scripts/read_omnifocus_tasks.applescript update-tag tag-id name="New tag title" parentTagName="Parent tag"
 osascript scripts/read_omnifocus_tasks.applescript delete-tag tag-id
 ```
 
 Replace, add, or remove task tags:
 
 ```sh
-osascript scripts/read_omnifocus_tasks.applescript update-task task-id tags="Office,Next"
-osascript scripts/read_omnifocus_tasks.applescript update-task task-id addTag="Errand"
-osascript scripts/read_omnifocus_tasks.applescript update-task task-id removeTag="Waiting"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id tagNames="Office,Next"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id addTagNames="Errand"
+osascript scripts/read_omnifocus_tasks.applescript update-task task-id removeTagNames="Waiting"
 ```
 
 Search completed or all tasks:
@@ -282,9 +295,16 @@ Supported create/update fields:
 - `completed`
 - `due`
 - `defer`
-- `tag`
+- `tagId`
+- `tagName`
+- `tagIds`
+- `tagNames`
 - `tags`
+- `addTagIds`
+- `addTagNames`
 - `addTag`
+- `removeTagIds`
+- `removeTagNames`
 - `removeTag`
 - `project`
 - `estimatedMinutes` or `estimated`
@@ -299,9 +319,16 @@ Supported project create/update fields:
 - `status`: `active`, `on hold`, `done`, or `dropped`
 - `due`
 - `defer`
-- `tag`
+- `tagId`
+- `tagName`
+- `tagIds`
+- `tagNames`
 - `tags`
+- `addTagIds`
+- `addTagNames`
 - `addTag`
+- `removeTagIds`
+- `removeTagNames`
 - `removeTag`
 - `folder`
 - `sequential`
@@ -310,10 +337,14 @@ Supported project create/update fields:
 
 Task tag fields:
 
-- `tag`: set the primary tag.
-- `tags`: replace all tags with a comma-separated list.
-- `addTag`: add one tag or a comma-separated list.
-- `removeTag`: remove one tag or a comma-separated list.
+- `tagId`: set the primary tag by id.
+- `tagName`: set the primary tag by exact name.
+- `tagIds`: replace all tags with a comma-separated list of tag ids.
+- `tagNames` or `tags`: replace all tags with a comma-separated list of exact tag names.
+- `addTagIds`: add one tag id or a comma-separated list of tag ids.
+- `addTagNames` or `addTag`: add one tag name or a comma-separated list of exact tag names.
+- `removeTagIds`: remove one tag id or a comma-separated list of tag ids.
+- `removeTagNames` or `removeTag`: remove one tag name or a comma-separated list of exact tag names.
 
 Project tag fields use the same names as task tag fields. Tag collection edits now fail directly if OmniFocus rejects them, instead of falling back to primary-tag assignment.
 
@@ -328,7 +359,8 @@ Supported tag create/update fields:
 
 - `name` or `title`
 - `note`
-- `tag` or `parent`
+- `parentTagId`
+- `parentTagName` or `parent`
 - `allowsNextAction`
 - `hidden`
 
@@ -513,13 +545,14 @@ Detailed project reads return the project fields plus additional metadata:
 }
 ```
 
-Search returns a wrapper with an exact match count and matched summaries:
+Search returns a wrapper with matched summaries:
 
 ```json
 {
   "query": "Natalia",
   "scope": "remaining",
-  "count": 1,
+  "count": null,
+  "hasMore": false,
   "limit": 5,
   "tasks": [
     {
@@ -542,7 +575,8 @@ Project search returns matched project summaries:
 {
   "query": "Energy",
   "scope": "all",
-  "count": 1,
+  "count": null,
+  "hasMore": false,
   "limit": 5,
   "projects": []
 }
@@ -553,7 +587,8 @@ Folder and tag search return matched object summaries:
 ```json
 {
   "query": "Office",
-  "count": 1,
+  "count": null,
+  "hasMore": false,
   "limit": 5,
   "tags": []
 }

@@ -44,6 +44,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print compact JSON instead of indented JSON.",
     )
+    parser.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Only run read/search modes. Do not create, update, or delete OmniFocus objects.",
+    )
     return parser.parse_args()
 
 
@@ -106,6 +111,8 @@ class Benchmark:
             response_count = parsed.get("count")
             has_more = parsed.get("hasMore")
             returned = returned_item_count(parsed)
+        elif isinstance(parsed, list):
+            returned = len(parsed)
 
         return {
             "label": label,
@@ -120,9 +127,10 @@ class Benchmark:
             "err": stderr[:500],
         }
 
-    def run_all(self) -> dict[str, Any]:
+    def run_all(self, *, read_only: bool = False) -> dict[str, Any]:
         self.run_read_modes()
-        self.run_write_lifecycle()
+        if not read_only:
+            self.run_write_lifecycle()
         return self.summary()
 
     def run_read_modes(self) -> None:
@@ -138,6 +146,10 @@ class Benchmark:
         self.run("projects all", "projects", "scope=all")
         self.run("folders", "folders")
         self.run("tags", "tags")
+        self.run("search tasks no match limit=1", "search-tasks", "query=CodexPerf-NoMatch", "scope=all", "limit=1")
+        self.run("search projects no match limit=1", "search-projects", "query=CodexPerf-NoMatch", "scope=all", "limit=1")
+        self.run("search folders no match limit=1", "search-folders", "query=CodexPerf-NoMatch", "limit=1")
+        self.run("search tags no match limit=1", "search-tags", "query=CodexPerf-NoMatch", "limit=1")
 
     def run_write_lifecycle(self) -> None:
         folder_name = f"{self.prefix} Folder"
@@ -168,7 +180,7 @@ class Benchmark:
             "create-project",
             f"name={project_name}",
             f"folder={folder_name_2}",
-            f"tag={tag_name_2}",
+            f"tagName={tag_name_2}",
             "note=performance test temporary project",
             "sequential=true",
             "estimatedMinutes=5",
@@ -184,7 +196,7 @@ class Benchmark:
             "create-task",
             f"name={task_name}",
             f"project={project_name_2}",
-            f"tag={tag_name_2}",
+            f"tagName={tag_name_2}",
             "note=performance test temporary task",
             "flagged=true",
             "estimatedMinutes=3",
@@ -206,6 +218,10 @@ class Benchmark:
         self.created.pop("folder", None)
 
     def cleanup(self) -> None:
+        self.cleanup_created_ids()
+        self.cleanup_prefix_matches()
+
+    def cleanup_created_ids(self) -> None:
         for key, mode in (
             ("task", "delete-task"),
             ("project", "delete-project"),
@@ -219,6 +235,36 @@ class Benchmark:
                 subprocess.run(["osascript", str(self.helper), mode, object_id], text=True, capture_output=True, timeout=30)
             except Exception:
                 pass
+
+    def cleanup_prefix_matches(self) -> None:
+        for mode, collection_key, delete_mode, extra_args in (
+            ("search-tasks", "tasks", "delete-task", ["scope=all", "limit=all"]),
+            ("search-projects", "projects", "delete-project", ["scope=all", "limit=all"]),
+            ("search-tags", "tags", "delete-tag", ["limit=all"]),
+            ("search-folders", "folders", "delete-folder", ["limit=all"]),
+        ):
+            try:
+                process = subprocess.run(
+                    ["osascript", str(self.helper), mode, f"query={self.prefix}", *extra_args],
+                    text=True,
+                    capture_output=True,
+                    timeout=60,
+                )
+                if process.returncode != 0:
+                    continue
+                parsed = json.loads(process.stdout)
+            except Exception:
+                continue
+
+            for item in parsed.get(collection_key, []):
+                object_id = item.get("id") if isinstance(item, dict) else None
+                name = item.get("name", "") if isinstance(item, dict) else ""
+                if not object_id or not isinstance(name, str) or not name.startswith(self.prefix):
+                    continue
+                try:
+                    subprocess.run(["osascript", str(self.helper), delete_mode, object_id], text=True, capture_output=True, timeout=30)
+                except Exception:
+                    pass
 
     def summary(self) -> dict[str, Any]:
         successful = [result for result in self.results if result["ok"]]
@@ -276,9 +322,10 @@ def main() -> int:
     benchmark = Benchmark(helper, prefix)
 
     try:
-        report = benchmark.run_all()
+        report = benchmark.run_all(read_only=args.read_only)
     finally:
-        benchmark.cleanup()
+        if not args.read_only:
+            benchmark.cleanup()
 
     indent = None if args.compact else 2
     payload = json.dumps(report, ensure_ascii=False, indent=indent)

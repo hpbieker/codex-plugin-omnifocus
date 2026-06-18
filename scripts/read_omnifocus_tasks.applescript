@@ -211,10 +211,8 @@ on createTag(optionsMap)
 	
 	tell application id (omniFocusAppID as text)
 		tell front document
-			set parentTagName to my optionValue(optionsMap, "tag")
-			if parentTagName is "" then set parentTagName to my optionValue(optionsMap, "parent")
-			if parentTagName is not "" then
-				set parentTag to my findTagByName(parentTagName)
+			set parentTag to my optionalTagFromOptions(optionsMap, "parentTagId", "parentTagName", "parent")
+			if parentTag is not missing value then
 				set tagItem to make new tag at end of tags of parentTag with properties {name:tagName}
 			else
 				set tagItem to make new tag at end of tags with properties {name:tagName}
@@ -239,17 +237,22 @@ on updateTask(taskItem, optionsMap)
 		if my hasOption(optionsMap, "due") then set «property FCDd» of taskItem to my optionalDateValue(my optionValue(optionsMap, "due"))
 		if my hasOption(optionsMap, "defer") then set «property FCDs» of taskItem to my optionalDateValue(my optionValue(optionsMap, "defer"))
 		
-		if my hasOption(optionsMap, "tag") then
-			set tagName to my optionValue(optionsMap, "tag")
-			if tagName is "" then
+		if my hasOption(optionsMap, "tagId") or my hasOption(optionsMap, "tagName") or my hasOption(optionsMap, "tag") then
+			if my optionValue(optionsMap, "tagId") is "" and my optionValue(optionsMap, "tagName") is "" and my optionValue(optionsMap, "tag") is "" then
 				set «property FCpt» of taskItem to missing value
 			else
-				set «property FCpt» of taskItem to my findTagByName(tagName)
+				set «property FCpt» of taskItem to my tagFromOptions(optionsMap, "tagId", "tagName", "tag")
 			end if
 		end if
-		if my hasOption(optionsMap, "tags") then my setTagsOnItem(taskItem, my optionValue(optionsMap, "tags"))
-		if my hasOption(optionsMap, "addTag") then my addTagsToItem(taskItem, my optionValue(optionsMap, "addTag"))
-		if my hasOption(optionsMap, "removeTag") then my removeTagsFromItem(taskItem, my optionValue(optionsMap, "removeTag"))
+		if my hasOption(optionsMap, "tagIds") then my setTagIdsOnItem(taskItem, my optionValue(optionsMap, "tagIds"))
+		if my hasOption(optionsMap, "tagNames") then my setTagNamesOnItem(taskItem, my optionValue(optionsMap, "tagNames"))
+		if my hasOption(optionsMap, "tags") then my setTagNamesOnItem(taskItem, my optionValue(optionsMap, "tags"))
+		if my hasOption(optionsMap, "addTagIds") then my addTagIdsToItem(taskItem, my optionValue(optionsMap, "addTagIds"))
+		if my hasOption(optionsMap, "addTagNames") then my addTagNamesToItem(taskItem, my optionValue(optionsMap, "addTagNames"))
+		if my hasOption(optionsMap, "addTag") then my addTagNamesToItem(taskItem, my optionValue(optionsMap, "addTag"))
+		if my hasOption(optionsMap, "removeTagIds") then my removeTagIdsFromItem(taskItem, my optionValue(optionsMap, "removeTagIds"))
+		if my hasOption(optionsMap, "removeTagNames") then my removeTagNamesFromItem(taskItem, my optionValue(optionsMap, "removeTagNames"))
+		if my hasOption(optionsMap, "removeTag") then my removeTagNamesFromItem(taskItem, my optionValue(optionsMap, "removeTag"))
 		
 		if my hasOption(optionsMap, "project") then
 			set projectName to my optionValue(optionsMap, "project")
@@ -288,17 +291,22 @@ on updateProject(projectItem, optionsMap)
 			my moveProjectToFolder(projectItem, my optionValue(optionsMap, "folder"))
 		end if
 		
-		if my hasOption(optionsMap, "tag") then
-			set tagName to my optionValue(optionsMap, "tag")
-			if tagName is "" then
+		if my hasOption(optionsMap, "tagId") or my hasOption(optionsMap, "tagName") or my hasOption(optionsMap, "tag") then
+			if my optionValue(optionsMap, "tagId") is "" and my optionValue(optionsMap, "tagName") is "" and my optionValue(optionsMap, "tag") is "" then
 				set «property FCpt» of projectItem to missing value
 			else
-				set «property FCpt» of projectItem to my findTagByName(tagName)
+				set «property FCpt» of projectItem to my tagFromOptions(optionsMap, "tagId", "tagName", "tag")
 			end if
 		end if
-		if my hasOption(optionsMap, "tags") then my setTagsOnItem(projectItem, my optionValue(optionsMap, "tags"))
-		if my hasOption(optionsMap, "addTag") then my addTagsToItem(projectItem, my optionValue(optionsMap, "addTag"))
-		if my hasOption(optionsMap, "removeTag") then my removeTagsFromItem(projectItem, my optionValue(optionsMap, "removeTag"))
+		if my hasOption(optionsMap, "tagIds") then my setTagIdsOnItem(projectItem, my optionValue(optionsMap, "tagIds"))
+		if my hasOption(optionsMap, "tagNames") then my setTagNamesOnItem(projectItem, my optionValue(optionsMap, "tagNames"))
+		if my hasOption(optionsMap, "tags") then my setTagNamesOnItem(projectItem, my optionValue(optionsMap, "tags"))
+		if my hasOption(optionsMap, "addTagIds") then my addTagIdsToItem(projectItem, my optionValue(optionsMap, "addTagIds"))
+		if my hasOption(optionsMap, "addTagNames") then my addTagNamesToItem(projectItem, my optionValue(optionsMap, "addTagNames"))
+		if my hasOption(optionsMap, "addTag") then my addTagNamesToItem(projectItem, my optionValue(optionsMap, "addTag"))
+		if my hasOption(optionsMap, "removeTagIds") then my removeTagIdsFromItem(projectItem, my optionValue(optionsMap, "removeTagIds"))
+		if my hasOption(optionsMap, "removeTagNames") then my removeTagNamesFromItem(projectItem, my optionValue(optionsMap, "removeTagNames"))
+		if my hasOption(optionsMap, "removeTag") then my removeTagNamesFromItem(projectItem, my optionValue(optionsMap, "removeTag"))
 		
 		if my hasOption(optionsMap, "status") then my setProjectStatus(projectItem, my optionValue(optionsMap, "status"))
 		
@@ -340,8 +348,14 @@ on updateTag(tagItem, optionsMap)
 		if my hasOption(optionsMap, "note") then set note of tagItem to my optionValue(optionsMap, "note")
 		if my hasOption(optionsMap, "allowsNextAction") then set «property FCNA» of tagItem to my boolValue(my optionValue(optionsMap, "allowsNextAction"))
 		if my hasOption(optionsMap, "hidden") then set hidden of tagItem to my boolValue(my optionValue(optionsMap, "hidden"))
-		if my hasOption(optionsMap, "tag") then my moveTagToTag(tagItem, my optionValue(optionsMap, "tag"))
-		if my hasOption(optionsMap, "parent") then my moveTagToTag(tagItem, my optionValue(optionsMap, "parent"))
+		if my hasOption(optionsMap, "parentTagId") or my hasOption(optionsMap, "parentTagName") or my hasOption(optionsMap, "parent") then
+			set parentTag to my optionalTagFromOptions(optionsMap, "parentTagId", "parentTagName", "parent")
+			if parentTag is missing value then
+				my moveTagToTopLevel(tagItem)
+			else
+				my moveTagToParentTag(tagItem, parentTag)
+			end if
+		end if
 	end tell
 end updateTag
 
@@ -367,18 +381,19 @@ on moveFolderToFolder(folderItem, folderName)
 	end tell
 end moveFolderToFolder
 
-on moveTagToTag(tagItem, parentTagName)
+on moveTagToTopLevel(tagItem)
 	tell application id (omniFocusAppID as text)
-		if parentTagName is "" or parentTagName is "none" or parentTagName is "null" then
-			move tagItem to end of tags
-		else
-			set parentTag to my findTagByName(parentTagName)
-			move tagItem to end of tags of parentTag
-		end if
+		move tagItem to end of tags
 	end tell
-end moveTagToTag
+end moveTagToTopLevel
 
-on setTagsOnItem(targetItem, tagListText)
+on moveTagToParentTag(tagItem, parentTag)
+	tell application id (omniFocusAppID as text)
+		move tagItem to end of tags of parentTag
+	end tell
+end moveTagToParentTag
+
+on setTagIdsOnItem(targetItem, tagListText)
 	tell application id (omniFocusAppID as text)
 		set existingTags to tags of targetItem
 		repeat with tagItem in existingTags
@@ -386,10 +401,33 @@ on setTagsOnItem(targetItem, tagListText)
 		end repeat
 		set «property FCpt» of targetItem to missing value
 	end tell
-	my addTagsToItem(targetItem, tagListText)
-end setTagsOnItem
+	my addTagIdsToItem(targetItem, tagListText)
+end setTagIdsOnItem
 
-on addTagsToItem(targetItem, tagListText)
+on setTagNamesOnItem(targetItem, tagListText)
+	tell application id (omniFocusAppID as text)
+		set existingTags to tags of targetItem
+		repeat with tagItem in existingTags
+			remove tagItem from targetItem
+		end repeat
+		set «property FCpt» of targetItem to missing value
+	end tell
+	my addTagNamesToItem(targetItem, tagListText)
+end setTagNamesOnItem
+
+on addTagIdsToItem(targetItem, tagListText)
+	set tagIds to my splitList(tagListText)
+	tell application id (omniFocusAppID as text)
+		repeat with tagId in tagIds
+			if (tagId as text) is not "" then
+				set tagItem to my findTagByID(tagId as text)
+				add tagItem to tags of targetItem
+			end if
+		end repeat
+	end tell
+end addTagIdsToItem
+
+on addTagNamesToItem(targetItem, tagListText)
 	set tagNames to my splitList(tagListText)
 	tell application id (omniFocusAppID as text)
 		repeat with tagName in tagNames
@@ -399,9 +437,21 @@ on addTagsToItem(targetItem, tagListText)
 			end if
 		end repeat
 	end tell
-end addTagsToItem
+end addTagNamesToItem
 
-on removeTagsFromItem(targetItem, tagListText)
+on removeTagIdsFromItem(targetItem, tagListText)
+	set tagIds to my splitList(tagListText)
+	tell application id (omniFocusAppID as text)
+		repeat with tagId in tagIds
+			if (tagId as text) is not "" then
+				set tagItem to my findTagByID(tagId as text)
+				remove tagItem from tags of targetItem
+			end if
+		end repeat
+	end tell
+end removeTagIdsFromItem
+
+on removeTagNamesFromItem(targetItem, tagListText)
 	set tagNames to my splitList(tagListText)
 	tell application id (omniFocusAppID as text)
 		repeat with tagName in tagNames
@@ -411,7 +461,7 @@ on removeTagsFromItem(targetItem, tagListText)
 			end if
 		end repeat
 	end tell
-end removeTagsFromItem
+end removeTagNamesFromItem
 
 on setProjectStatus(projectItem, statusText)
 	tell application id (omniFocusAppID as text)
@@ -484,6 +534,32 @@ on findTagByName(tagName)
 		end tell
 	end tell
 end findTagByName
+
+on tagFromOptions(optionsMap, idKey, nameKey, legacyNameKey)
+	set tagId to my optionValue(optionsMap, idKey)
+	if tagId is not "" then return my findTagByID(tagId)
+	set tagName to my optionValue(optionsMap, nameKey)
+	if tagName is not "" then return my findTagByName(tagName)
+	if legacyNameKey is not "" then
+		set legacyTagName to my optionValue(optionsMap, legacyNameKey)
+		if legacyTagName is not "" then return my findTagByName(legacyTagName)
+	end if
+	error "Expected " & idKey & " or " & nameKey & "."
+end tagFromOptions
+
+on optionalTagFromOptions(optionsMap, idKey, nameKey, legacyNameKey)
+	set tagId to my optionValue(optionsMap, idKey)
+	if tagId is not "" then return my findTagByID(tagId)
+	set tagName to my optionValue(optionsMap, nameKey)
+	if tagName is "none" or tagName is "null" then return missing value
+	if tagName is not "" then return my findTagByName(tagName)
+	if legacyNameKey is not "" then
+		set legacyTagName to my optionValue(optionsMap, legacyNameKey)
+		if legacyTagName is "none" or legacyTagName is "null" then return missing value
+		if legacyTagName is not "" then return my findTagByName(legacyTagName)
+	end if
+	return missing value
+end optionalTagFromOptions
 
 on searchTasksToJSON(optionsMap)
 	set searchQuery to my optionValue(optionsMap, "query")

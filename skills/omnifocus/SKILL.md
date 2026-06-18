@@ -27,7 +27,7 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
    - Direct task detail lookups by id (`task-detail <task-id>`) do not need scope filtering.
 2. Run the AppleScript helper with one of these modes:
    Task modes:
-   - `create-task name=<title> [note=...] [project=...] [tag=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
+   - `create-task name=<title> [note=...] [project=...] [tagName=...|tagId=...] [due=...] [defer=...] [flagged=true] [estimatedMinutes=15]`: create a task.
    - `delete-task <task-id>`: delete a task.
    - `search-tasks query=<text> [scope=remaining] [limit=50|all]`: full-text search task summaries. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
    - `task-detail <task-id>`: full task details.
@@ -40,15 +40,15 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
    - `tasks-flagged [limit=50|all]`: incomplete flagged task summaries by effective status.
    - `tasks-inbox [limit=50|all]`: incomplete inbox task summaries.
    - `tasks-remaining [limit=50|all]`: incomplete, not dropped task summaries by effective status, excluding project root tasks.
-   - `update-task <task-id> name=... note=... flagged=true completed=false due=... defer=... tag=... project=... estimatedMinutes=15`: update a task.
+   - `update-task <task-id> name=... note=... flagged=true completed=false due=... defer=... tagName=... tagId=... project=... estimatedMinutes=15`: update a task.
    Project modes:
-   - `create-project name=<title> [note=...] [folder=...] [tag=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
+   - `create-project name=<title> [note=...] [folder=...] [tagName=...|tagId=...] [status=active] [due=...] [defer=...] [flagged=true] [sequential=true] [estimatedMinutes=15]`: create a project.
    - `delete-project <project-id>`: delete a project by id.
    - `project-detail <project-id>`: full project details by id.
    - `project-detail-by-name <project-name>`: full project details by exact name.
    - `projects [scope=remaining]`: projects. Supported scopes are `remaining`, `active`, `on-hold`, `completed`, `dropped`, and `all`.
    - `search-projects query=<text> [scope=remaining] [limit=50|all]`: full-text search project summaries. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
-   - `update-project <project-id> name=... note=... completed=true status=... due=... defer=... folder=... tag=... flagged=true sequential=true estimatedMinutes=15`: update a project by id.
+   - `update-project <project-id> name=... note=... completed=true status=... due=... defer=... folder=... tagName=... tagId=... flagged=true sequential=true estimatedMinutes=15`: update a project by id.
    Folder modes:
    - `create-folder name=<title> [note=...] [folder=...]`: create a folder.
    - `delete-folder <folder-id>`: delete a folder by id.
@@ -58,13 +58,13 @@ Always run `osascript` through Codex `exec_command` with `sandbox_permissions=re
    - `search-folders query=<text> [limit=50|all]`: full-text search folders. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
    - `update-folder <folder-id> name=... note=... folder=... hidden=false`: update or move a folder by id.
    Tag modes:
-   - `create-tag name=<title> [note=...] [tag=...] [allowsNextAction=true]`: create a tag.
+   - `create-tag name=<title> [note=...] [parentTagName=...|parentTagId=...] [allowsNextAction=true]`: create a tag.
    - `delete-tag <tag-id>`: delete a tag by id.
    - `search-tags query=<text> [limit=50|all]`: full-text search tags. Warning: emits `[omnifocus-warning] full-text-search ...`; prefer narrower commands when possible.
    - `tag-detail <tag-id>`: full tag details by id.
    - `tag-detail-by-name <tag-name>`: full tag details by exact name.
    - `tags`: list tags.
-   - `update-tag <tag-id> name=... note=... tag=... allowsNextAction=true hidden=false`: update or move a tag by id.
+   - `update-tag <tag-id> name=... note=... parentTagName=... parentTagId=... allowsNextAction=true hidden=false`: update or move a tag by id.
 3. For ambiguous edits or deletes, identify the task first and ask for confirmation before making a destructive or hard-to-reverse change.
 4. Parse the JSON output instead of scraping OmniFocus UI text.
 5. Summarize only the relevant fields unless the user asks for raw JSON.
@@ -122,7 +122,7 @@ Supported options:
 
 - `query` or `q`: text to find.
 - `scope`: `remaining`, `available`, `inbox`, `flagged`, `due`, `deferred`, `completed`, or `all`.
-- `limit`: maximum returned task objects, or `all`; the response still includes total `count`.
+- `limit`: maximum returned task objects, or `all`.
 
 Search matches task id, name/title, and note. Matching is case-insensitive. Use `tasks-by-tag-name` or `tasks-by-tag` for tag relationships.
 
@@ -134,7 +134,7 @@ Supported project search options:
 
 - `query` or `q`: text to find.
 - `scope`: `remaining`, `active`, `on-hold`, `completed`, `dropped`, or `all`.
-- `limit`: maximum returned project objects, or `all`; the response still includes total `count`.
+- `limit`: maximum returned project objects, or `all`.
 
 Project search matches project id, name/title, note, and status. Matching is case-insensitive.
 
@@ -144,11 +144,13 @@ Use `tasks-by-tag-name` when the user asks for tasks with a specific tag or says
 
 Use the default `remaining` scope for tag task lookups unless the user explicitly asks for completed or all tagged tasks. Tag task lookups support `limit=all`.
 
-Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,tasks}`. Tag task modes return `{tag,scope,count,hasMore,limit,tasks}`. Task list and tag task modes do not compute an exact count by default; they fetch up to `limit + 1` matching tasks, return `count:null`, and set `hasMore:true` when there are more results. Use `count=true` only when the user needs an exact total, because that requires reading the full matching set and can be slow. Search modes return an exact `count` for matches. Use `limit=all` only when the user explicitly asks for a complete dump. Collection commands return summary fields; when full metadata is needed, first identify the item from the collection result, then call the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) for that individual item. `tasks-remaining`, `tasks-available`, `tasks-due`, `tasks-deferred`, and `tasks-flagged` filter by OmniFocus effective status, so tasks inside completed or dropped containers are excluded. Task modes also exclude OmniFocus project root tasks; use project modes for projects.
+Task list modes default to `limit=50` and return `{mode,count,hasMore,limit,tasks}`. Tag task modes return `{tag,scope,count,hasMore,limit,tasks}`. Search modes return the same wrapper pattern with the matched collection name. Task list, tag task, and search modes do not compute an exact count by default; they fetch up to `limit + 1` matching items, return `count:null`, and set `hasMore:true` when there are more results. Use `limit=all` only when the user explicitly asks for a complete dump. Collection commands return summary fields; when full metadata is needed, first identify the item from the collection result, then call the matching detail command (`task-detail`, `project-detail`, `folder-detail`, or `tag-detail`) for that individual item. `tasks-remaining`, `tasks-available`, `tasks-due`, `tasks-deferred`, and `tasks-flagged` filter by OmniFocus effective status, so tasks inside completed or dropped containers are excluded. Task modes also exclude OmniFocus project root tasks; use project modes for projects.
 
 ## Write Operations
 
 Use `create-task` for new inbox tasks unless the user names a project. If `project=<project name or id>` is provided, the task is created at the end of that project.
+
+For tag fields, prefer explicit identity parameters. Use `tagId`, `tagIds`, `addTagIds`, `removeTagIds`, or `parentTagId` when the tag id came from a previous OmniFocus result. Use `tagName`, `tagNames`, `addTagNames`, `removeTagNames`, or `parentTagName` when the tag comes from user text. Do not pass a tag name in an id field or an id in a name field.
 
 Use `update` for task changes. Supported fields:
 
@@ -158,10 +160,14 @@ Use `update` for task changes. Supported fields:
 - `completed`
 - `due`
 - `defer`
-- `tag`
-- `tags`: comma-separated list of tags to replace all existing task tags.
-- `addTag`: one tag or comma-separated tags to add to a task.
-- `removeTag`: one tag or comma-separated tags to remove from a task.
+- `tagId`: set the primary tag by id.
+- `tagName`: set the primary tag by exact name.
+- `tags` or `tagNames`: comma-separated list of tag names to replace all existing task tags.
+- `tagIds`: comma-separated list of tag ids to replace all existing task tags.
+- `addTag`, `addTagNames`: one tag name or comma-separated tag names to add to a task.
+- `addTagIds`: one tag id or comma-separated tag ids to add to a task.
+- `removeTag`, `removeTagNames`: one tag name or comma-separated tag names to remove from a task.
+- `removeTagIds`: one tag id or comma-separated tag ids to remove from a task.
 - `project`
 - `estimatedMinutes` or `estimated`
 
@@ -179,10 +185,14 @@ Use `update-project` for project changes. Supported fields:
 - `status`: `active`, `on hold`, `done`, or `dropped`
 - `due`
 - `defer`
-- `tag`
-- `tags`: comma-separated list. Replaces all existing tags and fails if OmniFocus rejects the tag collection edit.
-- `addTag`: one tag or comma-separated tags. Adds tags and fails if OmniFocus rejects the tag collection edit.
-- `removeTag`: one tag or comma-separated tags.
+- `tagId`: set the primary tag by id.
+- `tagName`: set the primary tag by exact name.
+- `tags` or `tagNames`: comma-separated list of tag names. Replaces all existing tags.
+- `tagIds`: comma-separated list of tag ids. Replaces all existing tags.
+- `addTag`, `addTagNames`: one tag name or comma-separated tag names.
+- `addTagIds`: one tag id or comma-separated tag ids.
+- `removeTag`, `removeTagNames`: one tag name or comma-separated tag names.
+- `removeTagIds`: one tag id or comma-separated tag ids.
 - `folder`
 - `sequential`
 - `completedByChildren`
@@ -201,7 +211,8 @@ Use `create-tag`, `update-tag`, and `delete-tag` for tag management. Supported t
 
 - `name` or `title`
 - `note`
-- `tag` or `parent`: parent tag name/id, or empty/`none` to move to top level
+- `parentTagId`: parent tag id, or empty to move to top level
+- `parentTagName` or `parent`: parent tag exact name, or empty/`none` to move to top level
 - `allowsNextAction`
 - `hidden`
 
@@ -372,7 +383,8 @@ Search mode returns:
 {
   "query": "Natalia",
   "scope": "remaining",
-  "count": 1,
+  "count": null,
+  "hasMore": false,
   "limit": 5,
   "tasks": [
     {
